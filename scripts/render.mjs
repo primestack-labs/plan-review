@@ -1,0 +1,178 @@
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
+import { diffManifests } from './diff.mjs';
+
+const TEMPLATE_DIR = fileURLToPath(new URL('../template/', import.meta.url));
+const WORDS_PER_MINUTE = 200;
+const SUB_NAMES = ['summary', 'changes', 'interfaces', 'decisions', 'ui', 'risks', 'code'];
+
+export const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+const h = escapeHtml;
+export const mermaidId = (id) => id.replace(/[^A-Za-z0-9_]/g, '_');
+
+const readTemplate = (name) => (existsSync(join(TEMPLATE_DIR, name)) ? readFileSync(join(TEMPLATE_DIR, name), 'utf8') : '');
+
+export function readingMinutes(section) {
+  const text = [section.summary, ...section.interfaces.consumes, ...section.interfaces.produces, ...section.risks, ...section.blocks.map((b) => b.summary)].join(' ');
+  return text.split(/\s+/).filter(Boolean).length / WORDS_PER_MINUTE;
+}
+
+export function listeningSeconds(section, audioIndex) {
+  return section.narration.reduce((sum, p) => sum + (audioIndex[p.id]?.duration ?? 0), 0);
+}
+
+const fmtMin = (minutes) => `${Math.max(1, Math.round(minutes))} min`;
+const fmtSec = (seconds) => (seconds ? `${Math.max(1, Math.round(seconds / 60))} min` : 'no audio');
+const list = (items) => (items.length ? `<ul>${items.map((i) => `<li>${h(i)}</li>`).join('')}</ul>` : '<p class="none">None.</p>');
+
+function renderHeader(manifest, audioIndex, round) {
+  const readTotal = manifest.sections.reduce((s, x) => s + readingMinutes(x), 0);
+  const listenTotal = manifest.sections.reduce((s, x) => s + listeningSeconds(x, audioIndex), 0);
+  const segments = manifest.sections.map((s) => {
+    const weight = listeningSeconds(s, audioIndex) || 1;
+    return `<button class="seg" data-section="${h(s.id)}" style="flex-grow:${weight}" title="${h(s.title)}"><span class="fill"></span></button>`;
+  }).join('');
+  return `<header class="bar" id="bar">
+  <div class="row">
+    <h1>${h(manifest.plan.title)}</h1><span class="round">Round ${round}</span>
+    <div class="transport">
+      <button id="prev" title="Previous section">⏮</button>
+      <button id="toggle" title="Play or pause">▶</button>
+      <button id="next" title="Next section">⏭</button>
+      <label>Speed <input id="speed" type="range" min="0.8" max="2" step="0.1" value="1"><span id="speed-value">1.0×</span></label>
+      <span id="now">Not playing</span>
+    </div>
+  </div>
+  <div class="progress" id="progress">${segments}</div>
+  <div class="row counters">
+    <span id="count-approved">0 approved</span><span id="count-commented">0 commented</span><span id="count-questioned">0 questioned</span><span id="count-decisions">0 open decisions</span>
+    <span class="budget">read ${fmtMin(readTotal)} · listen ${fmtSec(listenTotal)}</span>
+  </div>
+</header>`;
+}
+
+function renderOverview(manifest) {
+  const { plan, taskMap } = manifest;
+  const lines = ['flowchart LR', ...taskMap.nodes.map((n) => `  ${mermaidId(n.id)}["${n.title.replace(/"/g, "'")}"]`), ...taskMap.edges.map((e) => `  ${mermaidId(e.from)} -->|${e.label.replace(/\|/g, '/')}| ${mermaidId(e.to)}`)];
+  return `<section id="overview">
+  <h2>Overview</h2>
+  <dl>
+    <dt>Goal</dt><dd>${h(plan.goal)}</dd>
+    <dt>Architecture</dt><dd>${h(plan.architecture)}</dd>
+    <dt>Tech stack</dt><dd>${h(plan.techStack)}</dd>
+    <dt>Spec</dt><dd><code>${h(plan.spec)}</code></dd>
+    <dt>Plan</dt><dd><code>${h(plan.path)}</code></dd>
+  </dl>
+  <pre class="mermaid">${h(lines.join('\n'))}</pre>
+</section>`;
+}
+
+function renderDecisions(manifest, previousResolutions) {
+  const titles = new Map(manifest.sections.map((s) => [s.id, s.title]));
+  const rows = manifest.decisions.map((d) => {
+    const resolved = previousResolutions[d.id];
+    const control = d.options
+      ? d.options.map((o) => `<label><input type="radio" name="decision-${h(d.id)}" value="${h(o)}"${resolved === o ? ' checked' : ''}> ${h(o)}</label>`).join('')
+      : `<input type="text" name="decision-${h(d.id)}" value="${h(resolved ?? '')}" placeholder="Your resolution">`;
+    return `<div class="decision" id="decision-${h(d.id)}" data-decision="${h(d.id)}" data-kind="${h(d.kind)}"${resolved ? ' data-resolved="true"' : ''}>
+    <span class="kind">${h(d.kind)}</span>
+    <p>${h(d.text)}</p>
+    <a href="#${h(d.sectionId)}">${h(titles.get(d.sectionId) ?? d.sectionId)}</a>
+    <div class="resolution">${control}</div>
+  </div>`;
+  }).join('');
+  return `<section id="decisions"><h2>Decisions needed</h2>${rows || '<p class="none">No open decisions.</p>'}</section>`;
+}
+
+const renderConstraints = (constraints) => `<section id="constraints"><details><summary>Global constraints (${constraints.length})</summary>${list(constraints)}</details></section>`;
+
+function renderSection(s, ctx) {
+  const { audioIndex, changed, prefill, decisionsById, threads } = ctx;
+  const sub = (name, label, inner) => `<div class="sub sub-${name}" id="${h(s.id)}-${name}"><h3>${label}</h3>${inner}</div>`;
+  const changes = s.changes.length
+    ? `<table><thead><tr><th>Role</th><th>Path</th><th>Action</th></tr></thead><tbody>${s.changes.map((c) => `<tr><td>${h(c.role)}</td><td><code>${h(c.path)}</code></td><td>${h(c.action)}</td></tr>`).join('')}</tbody></table>`
+    : '<p class="none">No files.</p>';
+  const interfaces = `<dl><dt>Consumes</dt><dd>${list(s.interfaces.consumes)}</dd><dt>Produces</dt><dd>${list(s.interfaces.produces)}</dd></dl>`;
+  const decisions = s.decisionIds.length
+    ? `<ul>${s.decisionIds.map((id) => `<li><a href="#decision-${h(id)}">${h(decisionsById.get(id)?.text ?? id)}</a></li>`).join('')}</ul>`
+    : '<p class="none">None.</p>';
+  const ui = s.ui.map((u) => `<figure class="mockup" data-ui="${h(u.id)}"><figcaption>${h(u.title)} <button class="comment-ui" data-ui="${h(u.id)}">Comment on this mockup</button></figcaption><div class="frame" style="width:${Number(u.width) || 360}px">${u.html}</div>${u.notes ? `<p class="notes">${h(u.notes)}</p>` : ''}</figure>`).join('');
+  const blocks = s.blocks.map((b) => `<details class="block" id="${h(b.id)}" data-kind="${h(b.kind)}"><summary><span class="role">${h(b.role)}</span> ${h(b.summary)}</summary>${b.behaviors?.length ? `<ul class="behaviors">${b.behaviors.map((x) => `<li>${h(x)}</li>`).join('')}</ul>` : ''}<pre><code class="lang-${h(b.lang)}">${h(b.source)}</code></pre></details>`).join('');
+  const isChanged = changed.has(s.id);
+  const verdict = prefill[s.id] ?? '';
+  return `<article class="card" id="${h(s.id)}" data-section="${h(s.id)}" data-kind="${h(s.kind)}" data-verdict="${h(verdict)}"${isChanged ? ' data-changed="true"' : ''}${verdict === 'approved' ? ' data-collapsed="true"' : ''}>
+  <header>
+    <button class="play" data-section="${h(s.id)}" title="Play this section">▶</button>
+    <h2>${h(s.title)}</h2>
+    ${isChanged ? '<span class="badge changed">changed since last round</span>' : ''}
+    <span class="budget">read ${fmtMin(readingMinutes(s))} · listen ${fmtSec(listeningSeconds(s, audioIndex))}</span>
+  </header>
+  ${sub('summary', 'Summary', `<p>${h(s.summary)}</p>`)}
+  ${sub('changes', 'Changes', changes)}
+  ${sub('interfaces', 'Interfaces', interfaces)}
+  ${sub('decisions', 'Decisions', decisions)}
+  ${sub('ui', 'UI', ui || '<p class="none">No UI.</p>')}
+  ${sub('risks', 'Risks', list(s.risks))}
+  ${sub('code', 'Code', blocks || '<p class="none">No code.</p>')}
+  <details class="sub sub-executor" id="${h(s.id)}-executor"><summary>Executor detail</summary><div class="md" data-md="${h(s.id)}"></div><script type="text/markdown" id="md-${h(s.id)}">${s.executorDetail.replace(/<\/script/gi, '<\\/script')}</script></details>
+  ${threads(s.id)}
+  <footer class="verdict"><button data-verdict="approved">Approve</button><button data-verdict="commented">Comment</button><button data-verdict="questioned">Question</button></footer>
+</article>`;
+}
+
+const renderFooter = () => `<footer class="foot" id="foot">
+  <span id="comment-count">0 comments</span><span id="autosave">Not saved yet</span><span id="blockers"></span>
+  <button id="submit" disabled>Submit review</button>
+</footer>`;
+
+export function render(manifest, { audioIndex = {}, previous = null, round = 1 } = {}) {
+  const ctx = roundContext(manifest, previous);
+  const body = [
+    renderHeader(manifest, audioIndex, round),
+    '<main>',
+    renderOverview(manifest),
+    renderDecisions(manifest, ctx.previousResolutions),
+    renderConstraints(manifest.constraints),
+    ...manifest.sections.map((s) => renderSection(s, { ...ctx, audioIndex, decisionsById: new Map(manifest.decisions.map((d) => [d.id, d])) })),
+    '</main>',
+    renderFooter(),
+  ].join('\n');
+  const data = { round, planHash: manifest.plan.hash, audioIndex, prefill: ctx.prefill, previousResolutions: ctx.previousResolutions, changed: [...ctx.changed] };
+  const fill = {
+    title: h(manifest.plan.title),
+    css: readTemplate('page.css'),
+    body,
+    data: JSON.stringify(data).replace(/<\/script/gi, '<\\/script'),
+    state: readTemplate('state.mjs').replace(/^export /gm, ''),
+    js: readTemplate('page.js'),
+  };
+  return readTemplate('page.html').replace(/\{\{(\w+)\}\}/g, (_, key) => fill[key] ?? '');
+}
+
+export function roundContext(manifest, previous) {
+  return { changed: new Set(), prefill: {}, previousResolutions: {}, threads: () => '' };
+}
+
+export function readPrevious(dir) {
+  const read = (name) => (existsSync(join(dir, name)) ? JSON.parse(readFileSync(join(dir, name), 'utf8')) : null);
+  return { manifest: read('manifest.json'), submission: read('submission.json'), replies: read('replies.json') };
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const { positionals, values } = parseArgs({
+    allowPositionals: true,
+    options: { audio: { type: 'string' }, previous: { type: 'string' }, round: { type: 'string', default: '1' }, out: { type: 'string' } },
+  });
+  const [manifestPath] = positionals;
+  if (!manifestPath || !values.out) {
+    console.error('usage: render.mjs <manifest.json> --out <index.html> [--audio <audio/index.json>] [--previous <rounds/N>] [--round N]');
+    process.exit(2);
+  }
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const audioIndex = values.audio && existsSync(values.audio) ? JSON.parse(readFileSync(values.audio, 'utf8')) : {};
+  const previous = values.previous ? readPrevious(values.previous) : null;
+  writeFileSync(values.out, render(manifest, { audioIndex, previous, round: Number(values.round) }));
+  console.log(`rendered ${manifest.sections.length} section(s) to ${values.out}`);
+}
