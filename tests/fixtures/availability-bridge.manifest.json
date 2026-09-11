@@ -1,0 +1,149 @@
+{
+  "schema": 1,
+  "plan": {
+    "path": "docs/superpowers/plans/2026-08-25-schedule-builder-2-availability-bridge.md",
+    "title": "Schedule Builder Plan 2/5 — Availability ↔ Working-Hours Bridge",
+    "hash": "",
+    "goal": "The one-directional bridge from working windows to the advertised availability grid: a copy action with preview diff, opt-in auto-sync, and the harmful-direction mismatch warning with Ignore, Remove and Add-window actions.",
+    "architecture": "A pure projection and mismatch service beside the availability content-type, three custom availability endpoints, a recompute trigger on every working-window write when auto-sync is on, and the availability-page UI: sync toggle, read-only mode, copy-preview modal, per-slot warnings, and a prefill deep-link into the schedule-settings windows editor.",
+    "techStack": "Strapi 5 (Document Service, core factories), Vitest, Nuxt 3 + PrimeVue 4, useApi().",
+    "spec": "docs/superpowers/specs/2026-08-19-schedule-builder-design.md"
+  },
+  "decisions": [
+    {
+      "id": "d1",
+      "kind": "confirm",
+      "text": "Slot boundaries are placeholders from the spec: morning 06:00–12:00, noon 12:00–17:00, evening 17:00–24:00. Confirm or adjust; they are encoded once in SLOT_BOUNDS.",
+      "sectionId": "t1-bridge-service",
+      "options": ["Confirm 06–12 / 12–17 / 17–24", "Adjust (state the boundaries in a comment)"]
+    },
+    {
+      "id": "d2",
+      "kind": "assumption",
+      "text": "Route permissions are granted manually in Strapi admin after the endpoints land; without that the routes answer 403.",
+      "sectionId": "t0-preamble"
+    }
+  ],
+  "constraints": [
+    "Work on branch feature/pt-373-schedule-builder. Every commit ends with trailer Refs PT-373.",
+    "Docker only: docker compose up -d before any test authoring or run; never build or run on the host.",
+    "Slot boundaries live server-side only (SLOT_BOUNDS). The frontend never hardcodes 06:00, 12:00 or 17:00."
+  ],
+  "taskMap": {
+    "nodes": [
+      { "id": "t1-bridge-service", "title": "Bridge service" },
+      { "id": "t5-copy-from-windows", "title": "Copy-from-windows flow" }
+    ],
+    "edges": [{ "from": "t1-bridge-service", "to": "t5-copy-from-windows", "label": "SLOT_BOUNDS, projectWindows" }]
+  },
+  "sections": [
+    {
+      "id": "t0-preamble",
+      "ordinal": 0,
+      "title": "Preamble",
+      "kind": "preamble",
+      "summary": "This plan implements the availability to working-hours bridge section of the schedule-builder spec. Plan 1 already shipped the auto-sync flag, the dismissal field, the working-window collection and the schedule-settings editors this plan deep-links into.",
+      "changes": [],
+      "interfaces": { "consumes": [], "produces": [] },
+      "decisionIds": ["d2"],
+      "ui": [],
+      "risks": ["Route permissions are manual until PT-263 lands; forgetting them makes every new endpoint 403."],
+      "blocks": [],
+      "executorDetail": "Read the spec section «Availability ↔ working hours» before starting.",
+      "narration": [
+        { "id": "t0-preamble-p1", "text": "This plan implements the availability to working hours bridge section of the schedule builder spec. Plan one already shipped the auto sync flag, the dismissal field, the working window collection, and the schedule settings editors this plan deep links into.", "target": "summary" },
+        { "id": "t0-preamble-p2", "text": "One risk. Route permissions are manual until P T two sixty three lands; forgetting them makes every new endpoint return four oh three.", "target": "risks" }
+      ],
+      "sourceRange": [1, 32],
+      "contentHash": ""
+    },
+    {
+      "id": "t1-bridge-service",
+      "ordinal": 1,
+      "title": "Bridge service: projection, mismatch detection, recompute",
+      "kind": "task",
+      "summary": "A pure service that projects working windows onto the 21 availability slots, detects harmful mismatches, and recomputes the availability row. It is the single home of the slot boundaries.",
+      "changes": [
+        { "role": "bridge service", "path": "api/src/api/availability/services/bridge.js", "action": "create" },
+        { "role": "bridge unit tests", "path": "api/tests/unit/schedule/availability-bridge.test.mjs", "action": "test" }
+      ],
+      "interfaces": {
+        "consumes": [],
+        "produces": [
+          "SLOT_BOUNDS, SLOT_KEYS, slotParts(slot) → { weekday, period }",
+          "projectWindows(windows) → 21-boolean object",
+          "detectMismatches(availabilityRow, windows) → [{ slot, weekday, start_time, end_time }]",
+          "recompute(strapi, userId) → written availability row"
+        ]
+      },
+      "decisionIds": ["d1"],
+      "ui": [],
+      "risks": ["The end-of-day sentinel 23:59:59.999 must render as 24:00 everywhere minute arithmetic happens."],
+      "blocks": [
+        {
+          "id": "t1-bridge-service-b1",
+          "role": "bridge unit tests",
+          "kind": "test",
+          "lang": "js",
+          "summary": "Pins the slot boundaries in exactly one contract test; every other test derives fixtures from SLOT_BOUNDS so a boundary change touches one assertion.",
+          "behaviors": ["pins the confirmed slot boundaries", "lights every slot a window overlaps", "flags an advertised slot with no overlapping window"],
+          "source": "describe('SLOT_BOUNDS contract', () => {\n  it('pins the confirmed slot boundaries', () => {\n    expect(SLOT_BOUNDS).toEqual({ morning: { start: 360, end: 720 }, noon: { start: 720, end: 1020 }, evening: { start: 1020, end: 1440 } });\n  });\n});"
+        },
+        {
+          "id": "t1-bridge-service-b2",
+          "role": "bridge service",
+          "kind": "code",
+          "lang": "js",
+          "summary": "Exports the boundary constants and the four pure functions; recompute reads windows and the availability row through the Document Service and writes the projection back.",
+          "source": "const SLOT_BOUNDS = { morning: { start: 6 * 60, end: 12 * 60 }, noon: { start: 12 * 60, end: 17 * 60 }, evening: { start: 17 * 60, end: 24 * 60 } };\nmodule.exports = { SLOT_BOUNDS, projectWindows, detectMismatches, recompute };"
+        }
+      ],
+      "executorDetail": "- [ ] **Step 1: Write the failing tests**\n\nThe slot-boundary VALUES appear in exactly one test.\n\n- [ ] **Step 2: Run to verify failure**\n\nRun: `docker compose exec -T pt_api npx vitest run tests/unit/schedule/availability-bridge.test.mjs`",
+      "narration": [
+        { "id": "t1-bridge-service-p1", "text": "Task one, the bridge service. A pure service that projects working windows onto the twenty one availability slots, detects harmful mismatches, and recomputes the availability row. It is the single home of the slot boundaries.", "target": "summary" },
+        { "id": "t1-bridge-service-p2", "text": "It produces the slot bounds and slot keys constants, project windows, detect mismatches, and recompute. Tasks two and three consume all of these.", "target": "interfaces" },
+        { "id": "t1-bridge-service-p3", "text": "Decision needed: the slot boundaries are placeholders from the spec. Confirm or adjust them before implementation.", "target": "decisions" },
+        { "id": "t1-bridge-service-p4", "text": "One risk: the end of day sentinel must render as twenty four hundred everywhere minute arithmetic happens.", "target": "risks" },
+        { "id": "t1-bridge-service-p5", "text": "Code block one, the bridge unit tests. Pins the slot boundaries in exactly one contract test; every other test derives its fixtures from the constants.", "target": "t1-bridge-service-b1" },
+        { "id": "t1-bridge-service-p6", "text": "Code block two, the bridge service. Exports the boundary constants and the four pure functions.", "target": "t1-bridge-service-b2" }
+      ],
+      "sourceRange": [33, 334],
+      "contentHash": ""
+    },
+    {
+      "id": "t5-copy-from-windows",
+      "ordinal": 5,
+      "title": "Copy-from-windows flow: preview modal and button",
+      "kind": "task",
+      "summary": "A button on the availability page opens a preview modal showing which slots the copy would turn on or off, and applies the projection on confirm.",
+      "changes": [
+        { "role": "preview modal", "path": "frontend/components/schedule/CopyFromWindowsModal.vue", "action": "create" },
+        { "role": "availability page", "path": "frontend/pages/app/availability.vue", "action": "modify" }
+      ],
+      "interfaces": {
+        "consumes": ["projectWindows(windows) → 21-boolean object (Task 1)", "POST /availability/copy-from-windows (Task 2)"],
+        "produces": []
+      },
+      "decisionIds": [],
+      "ui": [
+        {
+          "id": "t5-copy-from-windows-ui1",
+          "title": "Copy preview modal, 320px",
+          "width": 320,
+          "html": "<div style=\"font-family:system-ui;border:1px solid #999;border-radius:8px;padding:12px\"><b>Αντιγραφή από ωράριο</b><table style=\"width:100%;margin-top:8px;font-size:12px\"><tr><td>Δευτέρα πρωί</td><td style=\"color:green\">+ ενεργό</td></tr><tr><td>Τρίτη απόγευμα</td><td style=\"color:#b00\">− ανενεργό</td></tr></table><div style=\"margin-top:12px;text-align:right\"><button>Άκυρο</button> <button style=\"background:#6d28d9;color:#fff\">Αντιγραφή</button></div></div>",
+          "notes": "Diff rows list only slots that change."
+        }
+      ],
+      "risks": [],
+      "blocks": [],
+      "executorDetail": "- [ ] **Step 1: Write the component test**\n\nRun: `docker compose exec -T pt_frontend npx vitest run tests/unit/schedule`",
+      "narration": [
+        { "id": "t5-copy-from-windows-p1", "text": "Task five, the copy from windows flow. A button on the availability page opens a preview modal showing which slots the copy would turn on or off, and applies the projection on confirm.", "target": "summary" },
+        { "id": "t5-copy-from-windows-p2", "text": "It consumes project windows from task one and the copy endpoint from task two.", "target": "interfaces" },
+        { "id": "t5-copy-from-windows-p3", "text": "The mockup shows the preview modal at three hundred twenty pixels: a title, a diff table of changed slots, and cancel and copy buttons.", "target": "ui" }
+      ],
+      "sourceRange": [855, 1071],
+      "contentHash": ""
+    }
+  ]
+}

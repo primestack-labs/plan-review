@@ -1,0 +1,79 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { parseArgs } from 'node:util';
+import { validate } from './lib/schema.mjs';
+import { sha1, sectionHash } from './lib/hash.mjs';
+
+const loadSchema = (name) => JSON.parse(readFileSync(new URL(`../schema/${name}`, import.meta.url), 'utf8'));
+export const MANIFEST_SCHEMA = loadSchema('manifest.schema.json');
+export const SUBMISSION_SCHEMA = loadSchema('submission.schema.json');
+
+const SUB_TARGETS = ['summary', 'interfaces', 'decisions', 'risks', 'ui'];
+
+export function validateManifest(manifest) {
+  const errors = validate(MANIFEST_SCHEMA, manifest);
+  if (errors.length) return errors;
+
+  const seen = new Map();
+  const unique = (id, path) => {
+    if (seen.has(id)) errors.push(`${path}: duplicate id ${id}`);
+    else seen.set(id, path);
+  };
+  manifest.decisions.forEach((d, i) => unique(d.id, `$.decisions[${i}].id`));
+  manifest.sections.forEach((s, i) => {
+    unique(s.id, `$.sections[${i}].id`);
+    s.blocks.forEach((b, j) => unique(b.id, `$.sections[${i}].blocks[${j}].id`));
+    s.ui.forEach((u, j) => unique(u.id, `$.sections[${i}].ui[${j}].id`));
+    s.narration.forEach((p, j) => unique(p.id, `$.sections[${i}].narration[${j}].id`));
+  });
+
+  const sectionIds = new Set(manifest.sections.map((s) => s.id));
+  const decisionIds = new Set(manifest.decisions.map((d) => d.id));
+  const nodeIds = new Set(manifest.taskMap.nodes.map((n) => n.id));
+
+  manifest.decisions.forEach((d, i) => {
+    if (!sectionIds.has(d.sectionId)) errors.push(`$.decisions[${i}].sectionId: unknown section ${d.sectionId}`);
+  });
+  manifest.taskMap.nodes.forEach((n, i) => {
+    if (!sectionIds.has(n.id)) errors.push(`$.taskMap.nodes[${i}].id: unknown section ${n.id}`);
+  });
+  manifest.taskMap.edges.forEach((e, i) => {
+    for (const end of ['from', 'to']) {
+      if (!nodeIds.has(e[end])) errors.push(`$.taskMap.edges[${i}].${end}: unknown node ${e[end]}`);
+    }
+  });
+  manifest.sections.forEach((s, i) => {
+    s.decisionIds.forEach((id, j) => {
+      if (!decisionIds.has(id)) errors.push(`$.sections[${i}].decisionIds[${j}]: unknown decision ${id}`);
+    });
+    const targets = new Set([...SUB_TARGETS, ...s.blocks.map((b) => b.id)]);
+    s.narration.forEach((p, j) => {
+      if (!targets.has(p.target)) errors.push(`$.sections[${i}].narration[${j}].target: unknown target ${p.target}`);
+    });
+  });
+  return errors;
+}
+
+export function stampHashes(manifest, planText) {
+  manifest.plan.hash = sha1(planText);
+  for (const section of manifest.sections) section.contentHash = sectionHash(section);
+  return manifest;
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const { positionals, values } = parseArgs({ allowPositionals: true, options: { plan: { type: 'string' } } });
+  const [manifestPath] = positionals;
+  if (!manifestPath) {
+    console.error('usage: validate.mjs <manifest.json> [--plan <plan.md>]');
+    process.exit(2);
+  }
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  if (values.plan) {
+    stampHashes(manifest, readFileSync(values.plan, 'utf8'));
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  }
+  const errors = validateManifest(manifest);
+  for (const e of errors) console.error(e);
+  console.log(errors.length ? `invalid: ${errors.length} error(s)` : `valid: ${manifest.sections.length} section(s)`);
+  process.exit(errors.length ? 1 : 0);
+}

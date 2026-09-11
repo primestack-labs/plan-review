@@ -1,0 +1,59 @@
+{
+  "type": "object",
+  "required": ["schema", "round", "planHash", "submittedAt", "outcome", "sections", "decisions", "comments"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": 1 },
+    "round": { "type": "number" },
+    "planHash": { "type": "string", "minLength": 1 },
+    "submittedAt": { "type": "string", "minLength": 1 },
+    "outcome": { "enum": ["approved", "changes-requested"] },
+    "sections": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["verdict", "heard"],
+        "additionalProperties": false,
+        "properties": {
+          "verdict": { "enum": ["approved", "commented", "questioned"] },
+          "heard": { "type": "boolean" }
+        }
+      }
+    },
+    "decisions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["resolution"],
+        "additionalProperties": false,
+        "properties": { "resolution": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "comments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "text", "anchor"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "type": { "enum": ["change", "question", "concern"] },
+          "text": { "type": "string", "minLength": 1 },
+          "anchor": {
+            "type": "object",
+            "required": ["sectionId", "quote", "prefix", "suffix"],
+            "additionalProperties": false,
+            "properties": {
+              "sectionId": { "type": "string", "minLength": 1 },
+              "quote": { "type": "string" },
+              "prefix": { "type": "string" },
+              "suffix": { "type": "string" },
+              "blockId": { "type": "string" },
+              "uiId": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
