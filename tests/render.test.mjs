@@ -80,6 +80,9 @@ test('header carries the task map, the progress bar and the embedded data', () =
   assert.deepEqual(data.audioIndex, audioIndex);
   assert.deepEqual(data.changed, []);
   assert.deepEqual(data.prefill, {});
+  assert.deepEqual(data.sections.map((s) => s.id), m.sections.map((s) => s.id));
+  assert.deepEqual(data.sections[1].narration[0], { id: 't1-bridge-service-p1', target: 'summary' });
+  assert.deepEqual(data.decisions, [{ id: 'd1' }, { id: 'd2' }]);
 });
 
 test('budgets come from word counts and audio durations', () => {

@@ -139,7 +139,16 @@ export function render(manifest, { audioIndex = {}, previous = null, round = 1 }
     '</main>',
     renderFooter(),
   ].join('\n');
-  const data = { round, planHash: manifest.plan.hash, audioIndex, prefill: ctx.prefill, previousResolutions: ctx.previousResolutions, changed: [...ctx.changed] };
+  const data = {
+    round,
+    planHash: manifest.plan.hash,
+    audioIndex,
+    prefill: ctx.prefill,
+    previousResolutions: ctx.previousResolutions,
+    changed: [...ctx.changed],
+    sections: manifest.sections.map((s) => ({ id: s.id, narration: s.narration.map((p) => ({ id: p.id, target: p.target })) })),
+    decisions: manifest.decisions.map((d) => ({ id: d.id })),
+  };
   const fill = {
     title: h(manifest.plan.title),
     css: readTemplate('page.css'),
