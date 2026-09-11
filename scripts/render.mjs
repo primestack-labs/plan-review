@@ -152,7 +152,33 @@ export function render(manifest, { audioIndex = {}, previous = null, round = 1 }
 }
 
 export function roundContext(manifest, previous) {
-  return { changed: new Set(), prefill: {}, previousResolutions: {}, threads: () => '' };
+  if (!previous?.submission) return { changed: new Set(), prefill: {}, previousResolutions: {}, threads: () => '' };
+  const { submission, replies } = previous;
+  const changed = new Set(previous.manifest ? diffManifests(previous.manifest, manifest).changed : []);
+  const replyFor = (id) => replies?.replies?.[id];
+  const comments = submission.comments ?? [];
+  const reopened = new Set(comments.filter((c) => ['rejected', 'clarified'].includes(replyFor(c.id)?.status)).map((c) => c.anchor.sectionId));
+
+  const prefill = {};
+  for (const s of manifest.sections) {
+    const verdict = submission.sections?.[s.id]?.verdict;
+    if (verdict === 'approved' && !changed.has(s.id) && !reopened.has(s.id)) prefill[s.id] = 'approved';
+  }
+  const previousResolutions = Object.fromEntries(Object.entries(submission.decisions ?? {}).map(([id, d]) => [id, d.resolution]));
+
+  const threads = (sectionId) => {
+    const own = comments.filter((c) => c.anchor.sectionId === sectionId);
+    if (!own.length) return '';
+    return `<div class="threads">${own.map((c) => {
+      const reply = replyFor(c.id);
+      return `<div class="thread" data-comment="${h(c.id)}" data-status="${h(reply?.status ?? 'unanswered')}">
+    <blockquote>${h(c.anchor.quote)}</blockquote>
+    <p class="you"><b>${h(c.type)}:</b> ${h(c.text)}</p>
+    ${reply ? `<p class="reply"><b>${h(reply.status)}:</b> ${h(reply.text)}</p>` : '<p class="reply none">No reply yet.</p>'}
+  </div>`;
+    }).join('')}</div>`;
+  };
+  return { changed, prefill, previousResolutions, threads };
 }
 
 export function readPrevious(dir) {
