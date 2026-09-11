@@ -1,0 +1,9 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "plan-review",
+  "version": "0.1.0",
+  "description": "Interactive review pages for implementation plans: reviewer's projection, per-section verdicts, anchored comments, chaptered audio, revision rounds.",
+  "author": { "name": "Marios Vertopoulos" },
+  "skills": ["./skills/plan-review-manifest", "./skills/plan-review-respond"],
+  "commands": ["./commands/plan-review.md"]
+}
