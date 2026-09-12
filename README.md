@@ -11,6 +11,8 @@ Claude Code plugin: review an implementation plan in the browser instead of read
 
 Loads next session as `plan-review@skills-dir`. Requires macOS (`say`, `afinfo`, `open`) and Node 22.
 
+To go straight from a saved plan to review, add one line to `~/.claude/CLAUDE.md`: after writing-plans saves a plan, invoke `plan-review-manifest` and offer `/plan-review`.
+
 ## Layout
 
     commands/plan-review.md        the round loop

@@ -85,6 +85,14 @@ test('header carries the task map, the progress bar and the embedded data', () =
   assert.deepEqual(data.decisions, [{ id: 'd1' }, { id: 'd2' }]);
 });
 
+test('overview omits the mermaid task map when there are no nodes', () => {
+  const m = load();
+  m.taskMap = { nodes: [], edges: [] };
+  const html = render(m);
+  assert.ok(!html.includes('<pre class="mermaid">'));
+  assert.ok(!html.includes('flowchart LR'));
+});
+
 test('budgets come from word counts and audio durations', () => {
   const m = load();
   assert.ok(readingMinutes(m.sections[1]) > 0.3 && readingMinutes(m.sections[1]) < 1);

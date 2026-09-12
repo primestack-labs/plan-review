@@ -56,6 +56,7 @@ function renderHeader(manifest, audioIndex, round) {
 function renderOverview(manifest) {
   const { plan, taskMap } = manifest;
   const lines = ['flowchart LR', ...taskMap.nodes.map((n) => `  ${mermaidId(n.id)}["${n.title.replace(/"/g, "'")}"]`), ...taskMap.edges.map((e) => `  ${mermaidId(e.from)} -->|${e.label.replace(/\|/g, '/')}| ${mermaidId(e.to)}`)];
+  const taskMapHtml = taskMap.nodes.length ? `<pre class="mermaid">${h(lines.join('\n'))}</pre>` : '';
   return `<section id="overview">
   <h2>Overview</h2>
   <dl>
@@ -65,7 +66,7 @@ function renderOverview(manifest) {
     <dt>Spec</dt><dd><code>${h(plan.spec)}</code></dd>
     <dt>Plan</dt><dd><code>${h(plan.path)}</code></dd>
   </dl>
-  <pre class="mermaid">${h(lines.join('\n'))}</pre>
+  ${taskMapHtml}
 </section>`;
 }
 

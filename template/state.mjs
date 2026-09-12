@@ -2,8 +2,9 @@ export function buildQueue(sections) {
   return sections.flatMap((s) => s.narration.map((p) => ({ id: p.id, sectionId: s.id, target: p.target })));
 }
 
-export function initialState(sections, decisions, prefill = {}, previousResolutions = {}) {
+export function initialState(sections, decisions, prefill = {}, previousResolutions = {}, round = 1) {
   return {
+    round,
     sections: Object.fromEntries(sections.map((s) => [s.id, { verdict: prefill[s.id] ?? null, heard: false }])),
     decisions: Object.fromEntries(decisions.map((d) => [d.id, { resolution: previousResolutions[d.id] ?? null }])),
     comments: [],
@@ -13,7 +14,7 @@ export function initialState(sections, decisions, prefill = {}, previousResoluti
 }
 
 export function mergeDraft(state, draft) {
-  if (!draft) return state;
+  if (!draft || draft.round !== state.round) return state;
   for (const [id, v] of Object.entries(draft.sections ?? {})) if (state.sections[id]) state.sections[id] = { verdict: v.verdict ?? null, heard: Boolean(v.heard) };
   for (const [id, d] of Object.entries(draft.decisions ?? {})) if (state.decisions[id]) state.decisions[id] = { resolution: d.resolution ?? null };
   state.comments = (draft.comments ?? []).filter((c) => state.sections[c.anchor?.sectionId]);

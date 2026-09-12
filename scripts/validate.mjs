@@ -68,11 +68,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(2);
   }
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-  if (values.plan) {
-    stampHashes(manifest, readFileSync(values.plan, 'utf8'));
-    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-  }
+  if (values.plan) stampHashes(manifest, readFileSync(values.plan, 'utf8'));
   const errors = validateManifest(manifest);
+  if (values.plan && !errors.length) writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   for (const e of errors) console.error(e);
   console.log(errors.length ? `invalid: ${errors.length} error(s)` : `valid: ${manifest.sections.length} section(s)`);
   process.exit(errors.length ? 1 : 0);

@@ -12,7 +12,7 @@ const transport = {
   submit: (payload) => fetch('/submit', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) }),
 };
 
-let state = initialState(sections, decisions, data.prefill, data.previousResolutions);
+let state = initialState(sections, decisions, data.prefill, data.previousResolutions, data.round);
 let saveTimer = null;
 let currentSection = null;
 let submitted = false;
@@ -54,7 +54,7 @@ function sync() {
   for (const seg of $$('#progress .seg')) {
     const s = state.sections[seg.dataset.section];
     seg.dataset.verdict = s.verdict ?? '';
-    if (s.heard) $('.fill', seg).style.width = '100%';
+    $('.fill', seg).style.width = s.heard ? '100%' : '0';
   }
   const c = counters(sections, decisions, state);
   $('#count-approved').textContent = `${c.approved} approved`;
@@ -75,6 +75,22 @@ function setVerdict(sectionId, verdict) {
   sync();
   persist();
 }
+
+// ---------- current section tracking ----------
+function setCurrentSection(sectionId) {
+  if (!sectionId || sectionId === currentSection) return;
+  if (currentSection) delete document.getElementById(currentSection).dataset.current;
+  currentSection = sectionId;
+  document.getElementById(currentSection).dataset.current = 'true';
+}
+
+const sectionObserver = new IntersectionObserver((entries) => {
+  const visible = entries.filter((entry) => entry.isIntersecting);
+  if (!visible.length) return;
+  const topmost = visible.reduce((a, b) => (a.boundingClientRect.top <= b.boundingClientRect.top ? a : b));
+  setCurrentSection(topmost.target.dataset.section);
+}, { threshold: 0.5 });
+for (const card of $$('article.card')) sectionObserver.observe(card);
 
 // ---------- audio ----------
 const queue = buildQueue(sections).filter((p) => audioIndex[p.id]);
@@ -97,7 +113,7 @@ function playIndex(i) {
   const card = document.getElementById(p.sectionId);
   delete card.dataset.collapsed;
   speaking?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  currentSection = p.sectionId;
+  setCurrentSection(p.sectionId);
   $('#now').textContent = $('h2', card).textContent;
   $('#toggle').textContent = '⏸';
   const own = queue.filter((q) => q.sectionId === p.sectionId);
@@ -187,7 +203,7 @@ function openPopover(anchor, near) {
   popover.hidden = false;
   const rect = near.getBoundingClientRect();
   popover.style.top = `${window.scrollY + rect.bottom + 8}px`;
-  popover.style.left = `${Math.min(window.scrollX + rect.left, window.innerWidth - 340)}px`;
+  popover.style.left = `${Math.min(window.scrollX + rect.left, window.scrollX + window.innerWidth - 340)}px`;
   $('#comment-text').focus();
 }
 
@@ -250,7 +266,7 @@ document.addEventListener('keydown', (e) => {
   if (e.target.closest('input, textarea, select')) return;
   const current = currentSection ?? sectionOrder(sections, null, 1);
   const go = (delta) => {
-    currentSection = sectionOrder(sections, currentSection, delta);
+    setCurrentSection(sectionOrder(sections, currentSection, delta));
     document.getElementById(currentSection).scrollIntoView({ block: 'start', behavior: 'smooth' });
   };
   if (e.key === 'j') go(1);
