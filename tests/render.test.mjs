@@ -28,7 +28,7 @@ test('every card has the sub-blocks in the fixed order and a verdict bar', () =>
   assert.deepEqual(positions, [...positions].sort((a, b) => a - b));
   assert.ok(card.includes('<details class="sub sub-executor" id="t1-bridge-service-executor">'));
   assert.equal(count(card, /<footer class="verdict">/g), 1);
-  assert.ok(card.includes('data-verdict="approved"') && card.includes('data-verdict="commented"') && card.includes('data-verdict="questioned"'));
+  assert.ok(card.includes('data-verdict="approved"') && card.includes('data-verdict="commented"') && !card.includes('data-verdict="questioned"'));
 });
 
 test('the decisions panel lists every decision with a resolution control', () => {

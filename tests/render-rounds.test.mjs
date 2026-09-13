@@ -12,11 +12,11 @@ function previousRound() {
     manifest,
     submission: {
       schema: 1, round: 1, planHash: manifest.plan.hash, submittedAt: '2026-09-11T10:00:00Z', outcome: 'changes-requested',
-      sections: { 't0-preamble': { verdict: 'approved', heard: true }, 't1-bridge-service': { verdict: 'questioned', heard: true }, 't5-copy-from-windows': { verdict: 'approved', heard: false } },
+      sections: { 't0-preamble': { verdict: 'approved', heard: true }, 't1-bridge-service': { verdict: 'commented', heard: true }, 't5-copy-from-windows': { verdict: 'approved', heard: false } },
       decisions: { d1: { resolution: 'Confirm 06–12 / 12–17 / 17–24' } },
       comments: [
-        { id: 'c1', type: 'question', text: 'Why 21 slots and not 7×3 named?', anchor: { sectionId: 't1-bridge-service', quote: '21 availability slots', prefix: 'onto the ', suffix: ', detects' } },
-        { id: 'c2', type: 'change', text: 'Show counts in the footer', anchor: { sectionId: 't5-copy-from-windows', quote: 'diff table', prefix: 'a ', suffix: ' of', uiId: 't5-copy-from-windows-ui1' } },
+        { id: 'c1', text: 'Why 21 slots and not 7×3 named?', anchor: { sectionId: 't1-bridge-service', quote: '21 availability slots', prefix: 'onto the ', suffix: ', detects' } },
+        { id: 'c2', text: 'Show counts in the footer', anchor: { sectionId: 't5-copy-from-windows', quote: 'diff table', prefix: 'a ', suffix: ' of', uiId: 't5-copy-from-windows-ui1' } },
       ],
     },
     replies: { round: 1, replies: { c1: { status: 'clarified', text: '21 is 7 weekdays × 3 periods; the object is keyed by slot name.' }, c2: { status: 'accepted', text: 'Footer now shows +n / −n.' } } },

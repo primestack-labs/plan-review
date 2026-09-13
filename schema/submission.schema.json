@@ -15,7 +15,7 @@
         "required": ["verdict", "heard"],
         "additionalProperties": false,
         "properties": {
-          "verdict": { "enum": ["approved", "commented", "questioned"] },
+          "verdict": { "enum": ["approved", "commented"] },
           "heard": { "type": "boolean" }
         }
       }
@@ -33,11 +33,10 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "type", "text", "anchor"],
+        "required": ["id", "text", "anchor"],
         "additionalProperties": false,
         "properties": {
           "id": { "type": "string", "minLength": 1 },
-          "type": { "enum": ["change", "question"] },
           "text": { "type": "string", "minLength": 1 },
           "anchor": {
             "type": "object",

@@ -26,12 +26,12 @@ test('initialState applies prefill and previous resolutions', () => {
 test('mergeDraft restores known ids and drops unknown ones', () => {
   const s = mergeDraft(fresh(), {
     round: 1,
-    sections: { 't1-bridge-service': { verdict: 'questioned', heard: true }, 't9-gone': { verdict: 'approved', heard: true } },
+    sections: { 't1-bridge-service': { verdict: 'commented', heard: true }, 't9-gone': { verdict: 'approved', heard: true } },
     decisions: { d2: { resolution: 'ok' }, d9: { resolution: 'x' } },
-    comments: [{ id: 'c1', type: 'question', text: 'why', anchor: { sectionId: 't1-bridge-service', quote: 'q', prefix: '', suffix: '' } }],
+    comments: [{ id: 'c1', text: 'why', anchor: { sectionId: 't1-bridge-service', quote: 'q', prefix: '', suffix: '' } }],
     nextComment: 2, scroll: 120,
   });
-  assert.equal(s.sections['t1-bridge-service'].verdict, 'questioned');
+  assert.equal(s.sections['t1-bridge-service'].verdict, 'commented');
   assert.equal(s.sections['t9-gone'], undefined);
   assert.equal(s.decisions.d2.resolution, 'ok');
   assert.equal(s.decisions.d9, undefined);
@@ -43,9 +43,9 @@ test('mergeDraft restores known ids and drops unknown ones', () => {
 test('mergeDraft ignores a draft from a different round', () => {
   const s = mergeDraft(fresh(), {
     round: 2,
-    sections: { 't1-bridge-service': { verdict: 'questioned', heard: true } },
+    sections: { 't1-bridge-service': { verdict: 'commented', heard: true } },
     decisions: { d2: { resolution: 'ok' } },
-    comments: [{ id: 'c1', type: 'question', text: 'why', anchor: { sectionId: 't1-bridge-service', quote: 'q', prefix: '', suffix: '' } }],
+    comments: [{ id: 'c1', text: 'why', anchor: { sectionId: 't1-bridge-service', quote: 'q', prefix: '', suffix: '' } }],
     nextComment: 2, scroll: 120,
   });
   assert.equal(s.sections['t1-bridge-service'].verdict, null);
@@ -74,19 +74,19 @@ test('submitBlockers names every gap and clears when complete', () => {
   s.decisions.d1.resolution = 'Confirm';
   s.decisions.d2.resolution = 'Noted';
   assert.deepEqual(submitBlockers(sections, decisions, s), ['1 commented section without a comment']);
-  s.comments.push({ id: 'c1', type: 'change', text: 'x', anchor: { sectionId: 't1-bridge-service', quote: 'q', prefix: '', suffix: '' } });
+  s.comments.push({ id: 'c1', text: 'x', anchor: { sectionId: 't1-bridge-service', quote: 'q', prefix: '', suffix: '' } });
   assert.deepEqual(submitBlockers(sections, decisions, s), []);
 });
 
 test('counters and outcome', () => {
   const s = fresh();
   s.sections['t0-preamble'].verdict = 'approved';
-  s.sections['t1-bridge-service'].verdict = 'questioned';
-  assert.deepEqual(counters(sections, decisions, s), { approved: 1, commented: 0, questioned: 1, openDecisions: 2 });
+  s.sections['t1-bridge-service'].verdict = 'commented';
+  assert.deepEqual(counters(sections, decisions, s), { approved: 1, commented: 1, openDecisions: 2 });
   assert.equal(outcome(sections, s), 'changes-requested');
   for (const id of Object.keys(s.sections)) s.sections[id].verdict = 'approved';
   assert.equal(outcome(sections, s), 'approved');
-  s.comments.push({ id: 'c1', type: 'change', text: 'x', anchor: { sectionId: 't0-preamble', quote: 'q', prefix: '', suffix: '' } });
+  s.comments.push({ id: 'c1', text: 'x', anchor: { sectionId: 't0-preamble', quote: 'q', prefix: '', suffix: '' } });
   assert.equal(outcome(sections, s), 'changes-requested');
 });
 

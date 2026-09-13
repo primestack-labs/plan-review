@@ -31,14 +31,14 @@ export function submitBlockers(sections, decisions, state) {
   if (noVerdict) blockers.push(`${plural(noVerdict, 'section')} without a verdict`);
   const open = decisions.filter((d) => !state.decisions[d.id]?.resolution).length;
   if (open) blockers.push(`${plural(open, 'open decision')}`);
-  const orphaned = sections.filter((s) => ['commented', 'questioned'].includes(state.sections[s.id]?.verdict) && !state.comments.some((c) => c.anchor.sectionId === s.id)).length;
+  const orphaned = sections.filter((s) => state.sections[s.id]?.verdict === 'commented' && !state.comments.some((c) => c.anchor.sectionId === s.id)).length;
   if (orphaned) blockers.push(`${plural(orphaned, 'commented section')} without a comment`);
   return blockers;
 }
 
 export function counters(sections, decisions, state) {
   const by = (v) => sections.filter((s) => state.sections[s.id]?.verdict === v).length;
-  return { approved: by('approved'), commented: by('commented'), questioned: by('questioned'), openDecisions: decisions.filter((d) => !state.decisions[d.id]?.resolution).length };
+  return { approved: by('approved'), commented: by('commented'), openDecisions: decisions.filter((d) => !state.decisions[d.id]?.resolution).length };
 }
 
 export function outcome(sections, state) {

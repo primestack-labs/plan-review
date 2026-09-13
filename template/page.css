@@ -1,11 +1,11 @@
 /* template/page.css */
 :root {
   --bg: #fafafa; --fg: #1b1b1f; --muted: #6b6b76; --line: #dcdce3; --card: #fff;
-  --accent: #6d28d9; --approved: #15803d; --commented: #b45309; --questioned: #b91c1c; --changed: #1d4ed8; --speak: #ede9fe;
+  --accent: #6d28d9; --approved: #15803d; --commented: #b45309; --questioned: #b91c1c; --changed: #1d4ed8; --speak: #ede9fe; --mark: rgba(109, 40, 217, .22);
 }
 @media (prefers-color-scheme: dark) {
   :root { --bg: #131316; --fg: #ececf1; --muted: #9a9aa6; --line: #2c2c33; --card: #1b1b20; --speak: #2e1065;
-    --accent: #a78bfa; --approved: #4ade80; --commented: #fbbf24; --questioned: #f87171; --changed: #60a5fa; }
+    --accent: #a78bfa; --approved: #4ade80; --commented: #fbbf24; --questioned: #f87171; --changed: #60a5fa; --mark: rgba(167, 139, 250, .45); }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; padding: 0 16px 96px; }
@@ -50,7 +50,6 @@ button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--a
 .seg .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); opacity: .35; }
 .seg[data-verdict=approved] { background: var(--approved); }
 .seg[data-verdict=commented] { background: var(--commented); }
-.seg[data-verdict=questioned] { background: var(--questioned); }
 .counters { font-size: 12px; color: var(--muted); }
 .budget { margin-left: auto; font-size: 12px; color: var(--muted); }
 
@@ -78,7 +77,6 @@ button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--a
 .card { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 10px; padding: 14px 18px; margin: 18px 0; }
 .card[data-verdict=approved] { border-left-color: var(--approved); }
 .card[data-verdict=commented] { border-left-color: var(--commented); }
-.card[data-verdict=questioned] { border-left-color: var(--questioned); }
 .card[data-changed=true] { border-left-color: var(--changed); }
 .card[data-current=true] { outline: 2px solid var(--accent); outline-offset: 2px; }
 .card > header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; cursor: pointer; }
@@ -104,10 +102,9 @@ button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--a
 .thread, .pin { border: 1px dashed var(--line); border-radius: 6px; padding: 6px 10px; font-size: 14px; }
 .pin { cursor: pointer; }
 .pin:hover { border-style: solid; }
-.pin[data-type=question] { border-color: var(--questioned); }
-.pin[data-type=change] { border-color: var(--commented); }
+.pin { border-color: var(--commented); }
 .pin .scope { font-size: 11px; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; }
-::highlight(review-selection) { background: var(--speak); }
+::highlight(review-selection) { background: var(--mark); }
 .thread blockquote, .pin q { color: var(--muted); font-style: italic; margin: 0; }
 .thread .reply { margin: 4px 0 0; }
 .thread[data-status=rejected] { border-color: var(--questioned); }
@@ -118,23 +115,16 @@ button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--a
 .verdict button { flex: 1; padding: 10px 12px; font-weight: 600; border-width: 2px; }
 .verdict button[data-verdict=approved] { border-color: var(--approved); color: var(--approved); }
 .verdict button[data-verdict=commented] { border-color: var(--commented); color: var(--commented); }
-.verdict button[data-verdict=questioned] { border-color: var(--questioned); color: var(--questioned); }
 .verdict button[data-verdict=approved].active { background: var(--approved); color: var(--card); box-shadow: none; }
 .verdict button[data-verdict=commented].active { background: var(--commented); color: var(--card); box-shadow: none; }
-.verdict button[data-verdict=questioned].active { background: var(--questioned); color: var(--card); box-shadow: none; }
 
 /* popover, help, footer */
-#popover { position: absolute; z-index: 20; width: 320px; max-width: calc(100vw - 32px); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); display: grid; gap: 8px; }
+#popover { position: absolute; z-index: 20; width: 480px; max-width: calc(100vw - 32px); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); display: grid; gap: 8px; }
 #popover[hidden] { display: none; }
-#popover textarea, #popover select { font: inherit; width: 100%; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); padding: 6px; }
+#popover textarea { font: inherit; width: 100%; min-height: 84px; max-height: 40vh; resize: vertical; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); padding: 6px; }
 #popover .actions { display: flex; align-items: center; gap: 8px; }
 #popover .actions .spacer { flex: 1; }
-#comment-types { display: flex; gap: 8px; }
-#comment-types button { flex: 1; font-weight: 600; border-width: 2px; }
-#comment-types button[data-type=question] { border-color: var(--questioned); color: var(--questioned); }
-#comment-types button[data-type=change] { border-color: var(--commented); color: var(--commented); }
-#comment-types button[data-type=question].active { background: var(--questioned); color: var(--card); box-shadow: none; }
-#comment-types button[data-type=change].active { background: var(--commented); color: var(--card); box-shadow: none; }
+
 #help { position: fixed; bottom: 64px; left: 16px; right: 16px; z-index: 20; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 13px; }
 #help[hidden] { display: none; }
 .foot { position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; display: flex; align-items: center; gap: 14px; padding: 10px 16px; background: var(--card); border-top: 1px solid var(--line); font-size: 13px; }

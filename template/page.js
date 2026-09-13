@@ -44,7 +44,7 @@ function sync() {
     }
     list.innerHTML = state.comments
       .filter((c) => c.anchor.sectionId === card.dataset.section)
-      .map((c) => `<div class="pin" data-comment="${c.id}" data-type="${escape(c.type)}"><b>${c.type === 'question' ? 'Question' : 'Change'}</b> ${c.anchor.scope === 'section' ? '<span class="scope">Section</span>' : `<q>${escape(c.anchor.quote)}</q>`} ${escape(c.text)} <button class="remove" data-comment="${c.id}" title="Remove">×</button></div>`)
+      .map((c) => `<div class="pin" data-comment="${c.id}">${c.anchor.scope === 'section' ? '<span class="scope">Section</span>' : `<q>${escape(c.anchor.quote)}</q>`} ${escape(c.text)} <button class="remove" data-comment="${c.id}" title="Remove">×</button></div>`)
       .join('');
   }
   for (const row of $$('.decision')) {
@@ -59,7 +59,6 @@ function sync() {
   const c = counters(sections, decisions, state);
   $('#count-approved').textContent = `${c.approved} approved`;
   $('#count-commented').textContent = `${c.commented} commented`;
-  $('#count-questioned').textContent = `${c.questioned} questioned`;
   $('#count-decisions').textContent = `${c.openDecisions} open decision${c.openDecisions === 1 ? '' : 's'}`;
   $('#comment-count').textContent = `${state.comments.length} comment${state.comments.length === 1 ? '' : 's'}`;
   const blockers = submitBlockers(sections, decisions, state);
@@ -166,18 +165,20 @@ for (const b of $$('button.play')) b.addEventListener('click', () => playSection
 for (const seg of $$('#progress .seg')) seg.addEventListener('click', () => playSection(seg.dataset.section));
 
 // ---------- verdicts, decisions, cards ----------
-function askForComment(sectionId, type, near) {
+const commentButton = (sectionId) => $('footer.verdict button[data-verdict=commented]', document.getElementById(sectionId));
+
+function askForComment(sectionId) {
   if (submitted) return;
-  if (commentOnSelection(sectionId, type)) return;
+  if (commentOnSelection(sectionId)) return;
   const card = document.getElementById(sectionId);
-  openPopover({ anchor: { sectionId, quote: $('h2', card).textContent.trim(), prefix: '', suffix: '', scope: 'section' }, near: near ?? $('footer.verdict', card), type });
+  openPopover({ anchor: { sectionId, quote: $('h2', card).textContent.trim(), prefix: '', suffix: '', scope: 'section' }, near: commentButton(sectionId) });
 }
 
 for (const b of $$('footer.verdict button')) {
   b.addEventListener('click', () => {
     const sectionId = b.closest('article').dataset.section;
     if (b.dataset.verdict === 'approved') setVerdict(sectionId, 'approved');
-    else askForComment(sectionId, b.dataset.verdict === 'questioned' ? 'question' : 'change', b);
+    else askForComment(sectionId);
   });
 }
 for (const input of $$('.decision input')) {
@@ -216,7 +217,6 @@ document.addEventListener('click', (e) => {
 // ---------- comments ----------
 const popover = $('#popover');
 let pending = null;
-let popoverType = 'change';
 const highlights = window.Highlight && window.CSS?.highlights ? CSS.highlights : null;
 const sectionIndex = new Map(sections.map((s, i) => [s.id, i]));
 
@@ -224,11 +224,6 @@ const interacting = () => !popover.hidden || !(window.getSelection()?.isCollapse
 const markRange = (range) => { if (highlights && range) highlights.set('review-selection', new Highlight(range)); };
 const clearMark = () => highlights?.delete('review-selection');
 const orderedComments = () => [...state.comments].sort((a, b) => (sectionIndex.get(a.anchor.sectionId) - sectionIndex.get(b.anchor.sectionId)) || (Number(a.id.slice(1)) - Number(b.id.slice(1))));
-
-function setPopoverType(type) {
-  popoverType = type;
-  for (const b of $$('#comment-types button')) b.classList.toggle('active', b.dataset.type === type);
-}
 
 function placePopover(near) {
   const rect = near.getBoundingClientRect();
@@ -243,9 +238,8 @@ function updatePopoverNav() {
   $('#comment-next').disabled = i < 0 || i >= list.length - 1;
 }
 
-function openPopover({ anchor, near, type = 'change', text = '', editing = null }) {
+function openPopover({ anchor, near, text = '', editing = null }) {
   pending = { anchor, editing };
-  setPopoverType(type);
   $('#comment-text').value = text;
   $('#comment-save').textContent = editing ? 'Save' : 'Add comment';
   popover.hidden = false;
@@ -264,8 +258,7 @@ function closePopover() {
 function refreshVerdict(sectionId) {
   const own = state.comments.filter((c) => c.anchor.sectionId === sectionId);
   const section = state.sections[sectionId];
-  if (own.some((c) => c.type === 'question')) section.verdict = 'questioned';
-  else if (own.length) section.verdict = 'commented';
+  if (own.length) section.verdict = 'commented';
   else if (section.verdict !== 'approved') section.verdict = null;
 }
 
@@ -274,11 +267,8 @@ function saveComment() {
   const text = $('#comment-text').value.trim();
   if (!text) return;
   const { anchor, editing } = pending;
-  if (editing) {
-    const c = state.comments.find((x) => x.id === editing);
-    c.type = popoverType;
-    c.text = text;
-  } else state.comments.push({ id: `c${state.nextComment++}`, type: popoverType, text, anchor });
+  if (editing) state.comments.find((x) => x.id === editing).text = text;
+  else state.comments.push({ id: `c${state.nextComment++}`, text, anchor });
   refreshVerdict(anchor.sectionId);
   closePopover();
   sync();
@@ -328,14 +318,14 @@ function rangeFromAnchor(card, anchor) {
 
 const rangeBox = (range) => ({ getBoundingClientRect: () => range.getBoundingClientRect() });
 
-function commentOnSelection(sectionId = null, type = 'change') {
+function commentOnSelection(sectionId = null) {
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.toString().trim()) return false;
   const range = sel.getRangeAt(0);
   const anchor = anchorFromRange(range);
   if (!anchor || (sectionId && anchor.sectionId !== sectionId)) return false;
   markRange(range);
-  openPopover({ anchor, near: range.getBoundingClientRect().height ? rangeBox(range) : range.startContainer.parentElement, type });
+  openPopover({ anchor, near: range.getBoundingClientRect().height ? rangeBox(range) : range.startContainer.parentElement });
   return true;
 }
 
@@ -346,14 +336,14 @@ function editComment(id) {
   const card = document.getElementById(c.anchor.sectionId);
   delete card.dataset.collapsed;
   clearMark();
-  let near = $('footer.verdict', card);
+  let near = commentButton(c.anchor.sectionId);
   const range = c.anchor.scope === 'section' ? null : rangeFromAnchor(card, c.anchor);
   if (range) {
     markRange(range);
     near = rangeBox(range);
     range.startContainer.parentElement?.scrollIntoView({ block: 'center' });
   } else card.scrollIntoView({ block: 'center' });
-  openPopover({ anchor: c.anchor, near, type: c.type, text: c.text, editing: id });
+  openPopover({ anchor: c.anchor, near, text: c.text, editing: id });
 }
 
 function moveComment(delta) {
@@ -375,10 +365,9 @@ for (const b of $$('button.comment-ui')) {
   b.addEventListener('click', () => {
     if (submitted) return;
     const figure = b.closest('figure.mockup');
-    openPopover({ anchor: { sectionId: b.closest('article').dataset.section, quote: $('figcaption', figure).firstChild.textContent.trim(), prefix: '', suffix: '', scope: 'section', uiId: b.dataset.ui }, near: b, type: 'change' });
+    openPopover({ anchor: { sectionId: b.closest('article').dataset.section, quote: $('figcaption', figure).firstChild.textContent.trim(), prefix: '', suffix: '', scope: 'section', uiId: b.dataset.ui }, near: b });
   });
 }
-for (const b of $$('#comment-types button')) b.addEventListener('click', () => setPopoverType(b.dataset.type));
 $('#comment-prev').addEventListener('click', () => moveComment(-1));
 $('#comment-next').addEventListener('click', () => moveComment(1));
 $('#comment-cancel').addEventListener('click', closePopover);
@@ -396,9 +385,8 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'j') go(1);
   else if (e.key === 'k') go(-1);
   else if (e.key === ' ') { e.preventDefault(); $('#toggle').click(); }
-  else if (e.key === 'c') { if (!commentOnSelection()) $('#blockers').textContent = 'Select some text first.'; }
+  else if (e.key === 'c') askForComment(current);
   else if (e.key === 'a') setVerdict(current, 'approved');
-  else if (e.key === 'q') askForComment(current, 'question');
   else if (e.key === '?') $('#help').hidden = !$('#help').hidden;
   else if (e.key === 'Escape') { closePopover(); $('#help').hidden = true; }
 });

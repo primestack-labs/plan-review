@@ -47,7 +47,7 @@ function renderHeader(manifest, audioIndex, round) {
   </div>
   <div class="progress" id="progress">${segments}</div>
   <div class="row counters">
-    <span id="count-approved">0 approved</span><span id="count-commented">0 commented</span><span id="count-questioned">0 questioned</span><span id="count-decisions">0 open decisions</span>
+    <span id="count-approved">0 approved</span><span id="count-commented">0 commented</span><span id="count-decisions">0 open decisions</span>
     <span class="budget">read ${fmtMin(readTotal)} · listen ${fmtSec(listenTotal)}</span>
   </div>
 </header>`;
@@ -121,7 +121,7 @@ function renderSection(s, ctx) {
   ${sub('code', 'Code', blocks || '<p class="none">No code.</p>')}
   <details class="sub sub-executor" id="${h(s.id)}-executor"><summary>Executor detail</summary><div class="md" data-md="${h(s.id)}"></div><script type="text/markdown" id="md-${h(s.id)}">${s.executorDetail.replace(/<\/script/gi, '<\\/script')}</script></details>
   ${threads(s.id)}
-  <footer class="verdict"><button data-verdict="questioned">? Question</button><button data-verdict="commented">✎ Change</button><button data-verdict="approved">✓ Approve</button></footer>
+  <footer class="verdict"><button data-verdict="commented">✎ Comment</button><button data-verdict="approved">✓ Approve</button></footer>
 </article>`;
 }
 
@@ -185,7 +185,7 @@ export function roundContext(manifest, previous) {
       const reply = replyFor(c.id);
       return `<div class="thread" data-comment="${h(c.id)}" data-status="${h(reply?.status ?? 'unanswered')}">
     <blockquote>${h(c.anchor.quote)}</blockquote>
-    <p class="you"><b>${h(c.type)}:</b> ${h(c.text)}</p>
+    <p class="you">${h(c.text)}</p>
     ${reply ? `<p class="reply"><b>${h(reply.status)}:</b> ${h(reply.text)}</p>` : '<p class="reply none">No reply yet.</p>'}
   </div>`;
     }).join('')}</div>`;
