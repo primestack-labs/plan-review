@@ -57,7 +57,7 @@ function renderOverview(manifest) {
   const { plan, taskMap } = manifest;
   const lines = ['flowchart LR', ...taskMap.nodes.map((n) => `  ${mermaidId(n.id)}["${n.title.replace(/"/g, "'")}"]`), ...taskMap.edges.map((e) => `  ${mermaidId(e.from)} -->|${e.label.replace(/\|/g, '/')}| ${mermaidId(e.to)}`)];
   const taskMapHtml = taskMap.nodes.length
-    ? `<div class="taskmap" id="taskmap"><div class="taskmap-tools"><button data-taskmap="fit" title="Fit the diagram to the frame">Fit</button><button data-taskmap="full" title="Toggle fullscreen">⛶ Fullscreen</button><span class="hint">wheel to zoom · drag to pan</span></div><div class="taskmap-view"><div class="taskmap-canvas"><pre class="mermaid">${h(lines.join('\n'))}</pre></div></div></div>`
+    ? `<div class="taskmap" id="taskmap"><div class="taskmap-tools"><button data-taskmap="fit" title="Fit the diagram to the frame">Fit</button><button data-taskmap="full" title="Toggle fullscreen">⛶ Fullscreen</button><span class="hint">ctrl + wheel or pinch to zoom · drag to pan</span></div><div class="taskmap-view"><div class="taskmap-canvas"><pre class="mermaid">${h(lines.join('\n'))}</pre></div></div></div>`
     : '';
   return `<section id="overview">
   <h2>Overview</h2>

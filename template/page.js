@@ -425,6 +425,7 @@ if (taskmap) {
     apply();
   };
   view.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
     const rect = view.getBoundingClientRect();
     const px = e.clientX - rect.left;
