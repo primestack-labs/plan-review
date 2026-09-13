@@ -47,6 +47,7 @@ function renderHeader(manifest, audioIndex, round) {
       <button id="next" title="Next section">⏭</button>
       <label>Speed <input id="speed" type="range" min="0.8" max="2" step="0.1" value="1"><span id="speed-value">1.0×</span></label>
       <span id="now">Not playing</span>
+      <span id="clock">0:00 / 0:00</span>
     </div>
   </div>
   <div class="progress" id="progress">${segments}</div>

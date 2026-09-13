@@ -98,9 +98,17 @@ window.addEventListener('scroll', () => { if (!scrollTick) { scrollTick = true; 
 
 // ---------- audio ----------
 const queue = buildQueue(played).filter((p) => audioIndex[p.id]);
+let clockTotal = 0;
+for (const p of queue) { p.start = clockTotal; p.duration = audioIndex[p.id].duration; clockTotal += p.duration; }
+const sectionSpan = (sectionId) => {
+  const own = queue.filter((q) => q.sectionId === sectionId);
+  return own.length ? { start: own[0].start, duration: own.reduce((s, q) => s + q.duration, 0) } : null;
+};
+const fmtClock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const player = new Audio();
 let cursor = -1;
 let speaking = null;
+let pendingSeek = 0;
 
 const targetElement = (p) => {
   if (p.sectionId === 'overview') return document.getElementById(`overview-${p.target}`);
@@ -108,10 +116,11 @@ const targetElement = (p) => {
   return document.getElementById(['summary', 'interfaces', 'decisions', 'risks', 'ui'].includes(p.target) ? `${p.sectionId}-${p.target}` : p.target);
 };
 
-function playIndex(i) {
+function playIndex(i, offset = 0) {
   if (i < 0 || i >= queue.length) return stop();
   cursor = i;
   const p = queue[i];
+  pendingSeek = offset;
   player.src = `audio/${audioIndex[p.id].file}`;
   player.playbackRate = Number($('#speed').value);
   player.play();
@@ -128,8 +137,27 @@ function playIndex(i) {
   const seg = $$('#progress .seg').find((el) => el.dataset.section === p.sectionId);
   for (const el of $$('#progress .seg[data-playing]')) if (el !== seg) delete el.dataset.playing;
   seg.dataset.playing = 'true';
-  $('.fill', seg).style.width = `${((own.indexOf(p) + 1) / own.length) * 100}%`;
+  updateProgress();
 }
+
+function updateProgress() {
+  if (cursor < 0) return;
+  const p = queue[cursor];
+  const span = sectionSpan(p.sectionId);
+  const within = p.start - span.start + Math.min(player.currentTime || 0, p.duration);
+  const seg = $$('#progress .seg').find((el) => el.dataset.section === p.sectionId);
+  if (seg) $('.fill', seg).style.width = `${Math.min(100, (within / span.duration) * 100)}%`;
+  $('#clock').textContent = `${fmtClock(p.start + (player.currentTime || 0))} / ${fmtClock(clockTotal)}`;
+}
+
+function seekTo(seconds) {
+  const i = queue.findIndex((p) => seconds < p.start + p.duration);
+  if (i < 0) return stop();
+  playIndex(i, Math.max(0, seconds - queue[i].start));
+}
+
+player.addEventListener('loadedmetadata', () => { if (pendingSeek) { player.currentTime = pendingSeek; pendingSeek = 0; } });
+player.addEventListener('timeupdate', updateProgress);
 
 function stop() {
   player.pause();
@@ -176,7 +204,15 @@ $('#speed').addEventListener('input', (e) => {
   $('#speed-value').textContent = `${Number(e.target.value).toFixed(1)}×`;
 });
 for (const b of $$('button.play')) b.addEventListener('click', () => playSection(b.dataset.section));
-for (const seg of $$('#progress .seg')) seg.addEventListener('click', () => playSection(seg.dataset.section));
+for (const seg of $$('#progress .seg')) {
+  seg.addEventListener('click', (e) => {
+    const span = sectionSpan(seg.dataset.section);
+    if (!span) return playSection(seg.dataset.section);
+    const rect = seg.getBoundingClientRect();
+    const fraction = Math.min(0.98, Math.max(0, (e.clientX - rect.left) / rect.width));
+    seekTo(span.start + fraction * span.duration);
+  });
+}
 
 // ---------- verdicts, decisions, cards ----------
 const commentButton = (sectionId) => $('footer.verdict button[data-verdict=commented]', document.getElementById(sectionId));
@@ -468,6 +504,7 @@ if (window.mermaid) {
 }
 window.addEventListener('scroll', () => { state.scroll = window.scrollY; persist(); }, { passive: true });
 
+$('#clock').textContent = `0:00 / ${fmtClock(clockTotal)}`;
 (async () => {
   try { state = mergeDraft(state, await transport.loadDraft()); } catch {}
   sync();
