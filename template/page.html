@@ -6,6 +6,7 @@
 <title>{{title}}</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.4.0/mermaid.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.7/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <style>{{css}}</style>
 </head>
 <body>
@@ -15,7 +16,7 @@
   <textarea id="comment-text" rows="3" placeholder="Your comment"></textarea>
   <div class="actions"><button id="comment-cancel">Cancel</button><button id="comment-save">Add comment</button></div>
 </div>
-<div id="help" hidden><b>Keys</b> j/k next/previous section · space play/pause · c comment on selection · a approve section · q question section · ? this list</div>
+<div id="help" hidden><b>Keys</b> j/k next/previous section · space play/pause · c comment on selection · a approve section · q question section (opens the comment box) · ? this list</div>
 <script id="review-data" type="application/json">{{data}}</script>
 <script type="module">
 {{state}}

@@ -166,7 +166,20 @@ for (const b of $$('button.play')) b.addEventListener('click', () => playSection
 for (const seg of $$('#progress .seg')) seg.addEventListener('click', () => playSection(seg.dataset.section));
 
 // ---------- verdicts, decisions, cards ----------
-for (const b of $$('footer.verdict button')) b.addEventListener('click', () => setVerdict(b.closest('article').dataset.section, b.dataset.verdict));
+function askForComment(sectionId, type) {
+  if (submitted) return;
+  if (commentOnSelection(sectionId, type)) return;
+  const card = document.getElementById(sectionId);
+  openPopover({ sectionId, quote: $('h2', card).textContent.trim(), prefix: '', suffix: '' }, $('footer.verdict', card), type);
+}
+
+for (const b of $$('footer.verdict button')) {
+  b.addEventListener('click', () => {
+    const sectionId = b.closest('article').dataset.section;
+    if (b.dataset.verdict === 'approved') setVerdict(sectionId, 'approved');
+    else askForComment(sectionId, b.dataset.verdict === 'questioned' ? 'question' : 'change');
+  });
+}
 for (const input of $$('.decision input')) {
   input.addEventListener('change', () => {
     if (submitted) return;
@@ -197,8 +210,9 @@ document.addEventListener('click', (e) => {
 const popover = $('#popover');
 let pending = null;
 
-function openPopover(anchor, near) {
+function openPopover(anchor, near, type = 'change') {
   pending = anchor;
+  $('#comment-type').value = type;
   $('#comment-text').value = '';
   popover.hidden = false;
   const rect = near.getBoundingClientRect();
@@ -224,13 +238,13 @@ function anchorFromRange(range) {
   return anchor;
 }
 
-function commentOnSelection() {
+function commentOnSelection(sectionId = null, type = 'change') {
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.toString().trim()) return false;
   const range = sel.getRangeAt(0);
   const anchor = anchorFromRange(range);
-  if (!anchor) return false;
-  openPopover(anchor, range.getBoundingClientRect().height ? { getBoundingClientRect: () => range.getBoundingClientRect() } : range.startContainer.parentElement);
+  if (!anchor || (sectionId && anchor.sectionId !== sectionId)) return false;
+  openPopover(anchor, range.getBoundingClientRect().height ? { getBoundingClientRect: () => range.getBoundingClientRect() } : range.startContainer.parentElement, type);
   return true;
 }
 
@@ -251,8 +265,11 @@ $('#comment-save').addEventListener('click', () => {
   if (submitted) return;
   const text = $('#comment-text').value.trim();
   if (!text || !pending) return;
-  state.comments.push({ id: `c${state.nextComment++}`, type: $('#comment-type').value, text, anchor: pending });
-  if (!state.sections[pending.sectionId].verdict) state.sections[pending.sectionId].verdict = $('#comment-type').value === 'question' ? 'questioned' : 'commented';
+  const type = $('#comment-type').value;
+  state.comments.push({ id: `c${state.nextComment++}`, type, text, anchor: pending });
+  const verdict = type === 'question' ? 'questioned' : 'commented';
+  const section = state.sections[pending.sectionId];
+  if (verdict === 'questioned' || section.verdict !== 'questioned') section.verdict = verdict;
   popover.hidden = true;
   pending = null;
   window.getSelection()?.removeAllRanges();
@@ -274,7 +291,7 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === ' ') { e.preventDefault(); $('#toggle').click(); }
   else if (e.key === 'c') { if (!commentOnSelection()) $('#blockers').textContent = 'Select some text first.'; }
   else if (e.key === 'a') setVerdict(current, 'approved');
-  else if (e.key === 'q') setVerdict(current, 'questioned');
+  else if (e.key === 'q') askForComment(current, 'question');
   else if (e.key === '?') $('#help').hidden = !$('#help').hidden;
   else if (e.key === 'Escape') { popover.hidden = true; $('#help').hidden = true; }
 });
@@ -298,12 +315,55 @@ $('#submit').addEventListener('click', async () => {
   }
 });
 
+// ---------- task map: pan, zoom, fullscreen ----------
+let fitTaskMap = () => {};
+const taskmap = $('#taskmap');
+if (taskmap) {
+  const view = $('.taskmap-view', taskmap);
+  const canvas = $('.taskmap-canvas', taskmap);
+  let scale = 1;
+  let tx = 0;
+  let ty = 0;
+  let drag = null;
+  const apply = () => { canvas.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`; };
+  fitTaskMap = () => {
+    const cw = canvas.scrollWidth || 1;
+    const ch = canvas.scrollHeight || 1;
+    scale = Math.min(view.clientWidth / cw, view.clientHeight / ch, 2);
+    tx = (view.clientWidth - cw * scale) / 2;
+    ty = (view.clientHeight - ch * scale) / 2;
+    apply();
+  };
+  view.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = view.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const next = Math.min(6, Math.max(0.2, scale * (e.deltaY < 0 ? 1.1 : 0.9)));
+    tx = px - (px - tx) * (next / scale);
+    ty = py - (py - ty) * (next / scale);
+    scale = next;
+    apply();
+  }, { passive: false });
+  view.addEventListener('pointerdown', (e) => { drag = { x: e.clientX - tx, y: e.clientY - ty }; view.setPointerCapture(e.pointerId); });
+  view.addEventListener('pointermove', (e) => { if (!drag) return; tx = e.clientX - drag.x; ty = e.clientY - drag.y; apply(); });
+  view.addEventListener('pointerup', () => { drag = null; });
+  view.addEventListener('pointercancel', () => { drag = null; });
+  $('[data-taskmap="fit"]', taskmap).addEventListener('click', fitTaskMap);
+  $('[data-taskmap="full"]', taskmap).addEventListener('click', () => (document.fullscreenElement ? document.exitFullscreen() : taskmap.requestFullscreen()));
+  document.addEventListener('fullscreenchange', () => setTimeout(fitTaskMap, 60));
+}
+
 // ---------- boot ----------
 for (const md of $$('script[type="text/markdown"]')) {
   const target = $(`.md[data-md="${md.id.slice(3)}"]`);
   if (target && window.marked) target.innerHTML = marked.parse(md.textContent);
 }
-if (window.mermaid) mermaid.initialize({ startOnLoad: true, theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default' });
+if (window.hljs) for (const code of $$('details.block pre code, .md pre code')) hljs.highlightElement(code);
+if (window.mermaid) {
+  mermaid.initialize({ startOnLoad: false, theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default', flowchart: { useMaxWidth: false } });
+  mermaid.run().then(fitTaskMap);
+}
 window.addEventListener('scroll', () => { state.scroll = window.scrollY; persist(); }, { passive: true });
 
 (async () => {
