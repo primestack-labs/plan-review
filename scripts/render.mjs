@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { diffManifests } from './diff.mjs';
+import { introSections } from './audio.mjs';
 
 const TEMPLATE_DIR = fileURLToPath(new URL('../template/', import.meta.url));
 const WORDS_PER_MINUTE = 200;
@@ -27,13 +28,16 @@ const fmtMin = (minutes) => `${Math.max(1, Math.round(minutes))} min`;
 const fmtSec = (seconds) => (seconds ? `${Math.max(1, Math.round(seconds / 60))} min` : 'no audio');
 const list = (items) => (items.length ? `<ul>${items.map((i) => `<li>${h(i)}</li>`).join('')}</ul>` : '<p class="none">None.</p>');
 
+const INTRO_TITLES = { overview: 'Overview', decisions: 'Decisions needed' };
+
 function renderHeader(manifest, audioIndex, round) {
+  const intro = introSections(manifest);
   const readTotal = manifest.sections.reduce((s, x) => s + readingMinutes(x), 0);
-  const listenTotal = manifest.sections.reduce((s, x) => s + listeningSeconds(x, audioIndex), 0);
-  const segments = manifest.sections.map((s) => {
-    const weight = listeningSeconds(s, audioIndex) || 1;
-    return `<button class="seg" data-section="${h(s.id)}" style="flex-grow:${weight}" title="${h(s.title)}"><span class="fill"></span></button>`;
-  }).join('');
+  const listenTotal = [...intro, ...manifest.sections].reduce((s, x) => s + listeningSeconds(x, audioIndex), 0);
+  const segments = [
+    ...intro.map((s) => `<button class="seg intro" data-section="${h(s.id)}" style="flex-grow:${listeningSeconds(s, audioIndex) || 1}" title="${INTRO_TITLES[s.id]}"><span class="fill"></span></button>`),
+    ...manifest.sections.map((s) => `<button class="seg" data-section="${h(s.id)}" style="flex-grow:${listeningSeconds(s, audioIndex) || 1}" title="${h(s.title)}"><span class="fill"></span></button>`),
+  ].join('');
   return `<header class="bar" id="bar">
   <div class="row">
     <h1>${h(manifest.plan.title)}</h1><span class="round">Round ${round}</span>
@@ -60,15 +64,15 @@ function renderOverview(manifest) {
     ? `<div class="taskmap" id="taskmap"><div class="taskmap-tools"><button data-taskmap="fit" title="Fit the diagram to the frame">Fit</button><button data-taskmap="full" title="Toggle fullscreen">⛶ Fullscreen</button><span class="hint">ctrl + wheel or pinch to zoom · drag to pan</span></div><div class="taskmap-view"><div class="taskmap-canvas"><pre class="mermaid">${h(lines.join('\n'))}</pre></div></div></div>`
     : '';
   return `<section id="overview">
-  <h2>Overview</h2>
+  <h2><button class="play" data-section="overview" title="Play the overview">▶</button> Overview</h2>
   <dl>
-    <dt>Goal</dt><dd>${h(plan.goal)}</dd>
-    <dt>Architecture</dt><dd>${h(plan.architecture)}</dd>
-    <dt>Tech stack</dt><dd>${h(plan.techStack)}</dd>
+    <dt>Goal</dt><dd id="overview-goal">${h(plan.goal)}</dd>
+    <dt>Architecture</dt><dd id="overview-architecture">${h(plan.architecture)}</dd>
+    <dt>Tech stack</dt><dd id="overview-techStack">${h(plan.techStack)}</dd>
     <dt>Spec</dt><dd><code>${h(plan.spec)}</code></dd>
     <dt>Plan</dt><dd><code>${h(plan.path)}</code></dd>
   </dl>
-  ${taskMapHtml}
+  <div id="overview-taskMap">${taskMapHtml}</div>
 </section>`;
 }
 
@@ -86,7 +90,7 @@ function renderDecisions(manifest, previousResolutions) {
     <div class="resolution">${control}</div>
   </div>`;
   }).join('');
-  return `<section id="decisions"><h2>Decisions needed</h2>${rows || '<p class="none">No open decisions.</p>'}</section>`;
+  return `<section id="decisions"><h2><button class="play" data-section="decisions" title="Play the decisions">▶</button> Decisions needed</h2>${rows || '<p class="none">No open decisions.</p>'}</section>`;
 }
 
 const renderConstraints = (constraints) => `<section id="constraints"><details><summary>Global constraints (${constraints.length})</summary>${list(constraints)}</details></section>`;
@@ -149,6 +153,7 @@ export function render(manifest, { audioIndex = {}, previous = null, round = 1 }
     prefill: ctx.prefill,
     previousResolutions: ctx.previousResolutions,
     changed: [...ctx.changed],
+    intro: introSections(manifest).map((s) => ({ id: s.id, narration: s.narration.map((p) => ({ id: p.id, target: p.target })) })),
     sections: manifest.sections.map((s) => ({ id: s.id, narration: s.narration.map((p) => ({ id: p.id, target: p.target })) })),
     decisions: manifest.decisions.map((d) => ({ id: d.id })),
   };

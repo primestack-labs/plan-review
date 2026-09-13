@@ -16,7 +16,8 @@ test('one card per section, in manifest order', () => {
   const m = load();
   const html = render(m);
   assert.equal(count(html, /<article class="card"/g), m.sections.length);
-  assert.deepEqual(attrValues(html.replace(/<button class="play"[^>]*>/g, ''), 'data-section').filter((v, i, a) => a.indexOf(v) === i), m.sections.map((s) => s.id));
+  const stripped = html.replace(/<button class="play"[^>]*>/g, '').replace(/<button class="seg intro"[^>]*>/g, '');
+  assert.deepEqual(attrValues(stripped, 'data-section').filter((v, i, a) => a.indexOf(v) === i), m.sections.map((s) => s.id));
 });
 
 test('every card has the sub-blocks in the fixed order and a verdict bar', () => {
@@ -73,6 +74,8 @@ test('header carries the task map, the progress bar and the embedded data', () =
   assert.ok(html.includes('flowchart LR'));
   assert.ok(html.includes(`${mermaidId('t1-bridge-service')} --&gt;|SLOT_BOUNDS, projectWindows| ${mermaidId('t5-copy-from-windows')}`));
   assert.equal(count(html, /<button class="seg"/g), m.sections.length);
+  assert.equal(count(html, /<button class="seg intro"/g), 2);
+  assert.ok(html.includes('id="overview-goal"') && html.includes('id="overview-taskMap"'));
   assert.ok(html.includes('<span class="round">Round 2</span>'));
   const data = JSON.parse(html.match(/<script id="review-data" type="application\/json">([\s\S]*?)<\/script>/)[1]);
   assert.equal(data.round, 2);
@@ -80,6 +83,7 @@ test('header carries the task map, the progress bar and the embedded data', () =
   assert.deepEqual(data.audioIndex, audioIndex);
   assert.deepEqual(data.changed, []);
   assert.deepEqual(data.prefill, {});
+  assert.deepEqual(data.intro.map((s) => s.id), ['overview', 'decisions']);
   assert.deepEqual(data.sections.map((s) => s.id), m.sections.map((s) => s.id));
   assert.deepEqual(data.sections[1].narration[0], { id: 't1-bridge-service-p1', target: 'summary' });
   assert.deepEqual(data.decisions, [{ id: 'd1' }, { id: 'd2' }]);

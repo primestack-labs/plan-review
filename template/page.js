@@ -1,5 +1,7 @@
 const data = JSON.parse(document.getElementById('review-data').textContent);
 const { sections, decisions, audioIndex } = data;
+const intro = data.intro ?? [];
+const played = [...intro, ...sections];
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
@@ -95,12 +97,16 @@ function pickCurrentSection() {
 window.addEventListener('scroll', () => { if (!scrollTick) { scrollTick = true; requestAnimationFrame(pickCurrentSection); } }, { passive: true });
 
 // ---------- audio ----------
-const queue = buildQueue(sections).filter((p) => audioIndex[p.id]);
+const queue = buildQueue(played).filter((p) => audioIndex[p.id]);
 const player = new Audio();
 let cursor = -1;
 let speaking = null;
 
-const targetElement = (p) => document.getElementById(['summary', 'interfaces', 'decisions', 'risks', 'ui'].includes(p.target) ? `${p.sectionId}-${p.target}` : p.target);
+const targetElement = (p) => {
+  if (p.sectionId === 'overview') return document.getElementById(`overview-${p.target}`);
+  if (p.sectionId === 'decisions') return document.getElementById(`decision-${p.target}`);
+  return document.getElementById(['summary', 'interfaces', 'decisions', 'risks', 'ui'].includes(p.target) ? `${p.sectionId}-${p.target}` : p.target);
+};
 
 function playIndex(i) {
   if (i < 0 || i >= queue.length) return stop();
@@ -115,8 +121,8 @@ function playIndex(i) {
   const card = document.getElementById(p.sectionId);
   delete card.dataset.collapsed;
   if (!interacting()) speaking?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  setCurrentSection(p.sectionId);
-  $('#now').textContent = $('h2', card).textContent;
+  if (state.sections[p.sectionId]) setCurrentSection(p.sectionId);
+  $('#now').textContent = $('h2', card).textContent.replace(/^▶\s*/, '');
   $('#toggle').textContent = '⏸';
   const own = queue.filter((q) => q.sectionId === p.sectionId);
   const done = own.indexOf(p);
@@ -136,9 +142,11 @@ player.addEventListener('ended', () => {
   const p = queue[cursor];
   const next = queue[cursor + 1];
   if (!next || next.sectionId !== p.sectionId) {
-    state.sections[p.sectionId].heard = true;
-    sync();
-    persist();
+    if (state.sections[p.sectionId]) {
+      state.sections[p.sectionId].heard = true;
+      sync();
+      persist();
+    } else $$('#progress .seg').find((el) => el.dataset.section === p.sectionId).querySelector('.fill').style.width = '100%';
   }
   playIndex(cursor + 1);
 });
@@ -158,8 +166,9 @@ $('#toggle').addEventListener('click', () => {
     speaking?.classList.add('speaking');
   } else playIndex(0);
 });
-$('#prev').addEventListener('click', () => playSection(sectionOrder(sections, currentSection, -1)));
-$('#next').addEventListener('click', () => playSection(sectionOrder(sections, currentSection, 1)));
+const playingSection = () => (cursor >= 0 ? queue[cursor].sectionId : currentSection);
+$('#prev').addEventListener('click', () => playSection(sectionOrder(played, playingSection(), -1)));
+$('#next').addEventListener('click', () => playSection(sectionOrder(played, playingSection(), 1)));
 $('#speed').addEventListener('input', (e) => {
   player.playbackRate = Number(e.target.value);
   $('#speed-value').textContent = `${Number(e.target.value).toFixed(1)}×`;

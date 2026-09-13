@@ -9,6 +9,7 @@ export const MANIFEST_SCHEMA = loadSchema('manifest.schema.json');
 export const SUBMISSION_SCHEMA = loadSchema('submission.schema.json');
 
 const SUB_TARGETS = ['summary', 'interfaces', 'decisions', 'risks', 'ui'];
+const OVERVIEW_TARGETS = ['goal', 'architecture', 'techStack', 'taskMap'];
 
 export function validateManifest(manifest) {
   const errors = validate(MANIFEST_SCHEMA, manifest);
@@ -20,6 +21,8 @@ export function validateManifest(manifest) {
     else seen.set(id, path);
   };
   manifest.decisions.forEach((d, i) => unique(d.id, `$.decisions[${i}].id`));
+  (manifest.narration?.overview ?? []).forEach((p, j) => unique(p.id, `$.narration.overview[${j}].id`));
+  (manifest.narration?.decisions ?? []).forEach((p, j) => unique(p.id, `$.narration.decisions[${j}].id`));
   manifest.sections.forEach((s, i) => {
     unique(s.id, `$.sections[${i}].id`);
     s.blocks.forEach((b, j) => unique(b.id, `$.sections[${i}].blocks[${j}].id`));
@@ -33,6 +36,12 @@ export function validateManifest(manifest) {
 
   manifest.decisions.forEach((d, i) => {
     if (!sectionIds.has(d.sectionId)) errors.push(`$.decisions[${i}].sectionId: unknown section ${d.sectionId}`);
+  });
+  (manifest.narration?.overview ?? []).forEach((p, j) => {
+    if (!OVERVIEW_TARGETS.includes(p.target)) errors.push(`$.narration.overview[${j}].target: unknown target ${p.target}`);
+  });
+  (manifest.narration?.decisions ?? []).forEach((p, j) => {
+    if (!decisionIds.has(p.target)) errors.push(`$.narration.decisions[${j}].target: unknown decision ${p.target}`);
   });
   manifest.taskMap.nodes.forEach((n, i) => {
     if (!sectionIds.has(n.id)) errors.push(`$.taskMap.nodes[${i}].id: unknown section ${n.id}`);

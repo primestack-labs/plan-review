@@ -6,8 +6,13 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { sha1 } from './lib/hash.mjs';
 
+export const introSections = (manifest) => [
+  { id: 'overview', narration: manifest.narration?.overview ?? [] },
+  { id: 'decisions', narration: manifest.narration?.decisions ?? [] },
+].filter((s) => s.narration.length);
+
 export function narrationChunks(manifest) {
-  return manifest.sections.flatMap((s) => s.narration.map((p) => ({ id: p.id, sectionId: s.id, target: p.target, text: p.text })));
+  return [...introSections(manifest), ...manifest.sections].flatMap((s) => s.narration.map((p) => ({ id: p.id, sectionId: s.id, target: p.target, text: p.text })));
 }
 
 export const audioFileName = (voice, rate, text) => `${sha1(`${voice}|${rate}|${text}`)}.m4a`;

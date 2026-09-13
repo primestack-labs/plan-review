@@ -6,13 +6,15 @@ import { tmpdir } from 'node:os';
 import { narrationChunks, audioFileName, generateAudio } from '../scripts/audio.mjs';
 
 const manifest = JSON.parse(readFileSync(new URL('./fixtures/availability-bridge.manifest.json', import.meta.url)));
-const paragraphIds = manifest.sections.flatMap((s) => s.narration.map((p) => p.id));
+const paragraphIds = [...manifest.narration.overview, ...manifest.narration.decisions, ...manifest.sections.flatMap((s) => s.narration)].map((p) => p.id);
 
 test('narrationChunks flattens paragraphs in document order with their section', () => {
   const chunks = narrationChunks(manifest);
   assert.deepEqual(chunks.map((c) => c.id), paragraphIds);
-  assert.equal(chunks[0].sectionId, 't0-preamble');
-  assert.equal(chunks[0].target, 'summary');
+  assert.equal(chunks[0].sectionId, 'overview');
+  assert.equal(chunks[0].target, 'goal');
+  assert.equal(chunks[2].sectionId, 'decisions');
+  assert.equal(chunks[4].sectionId, 't0-preamble');
 });
 
 test('audioFileName is a content hash that depends on voice and rate', () => {

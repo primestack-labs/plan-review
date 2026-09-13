@@ -29,8 +29,12 @@ test('dangling references are reported', () => {
   m.decisions[0].sectionId = 't9-nowhere';
   m.taskMap.edges[0].to = 't9-nowhere';
   m.sections[2].narration[0].target = 'nope';
+  m.narration.overview[1].target = 'nowhere';
+  m.narration.decisions[0].target = 'd9';
   assert.deepEqual(validateManifest(m), [
     '$.decisions[0].sectionId: unknown section t9-nowhere',
+    '$.narration.overview[1].target: unknown target nowhere',
+    '$.narration.decisions[0].target: unknown decision d9',
     '$.taskMap.edges[0].to: unknown node t9-nowhere',
     '$.sections[1].decisionIds[1]: unknown decision d9',
     '$.sections[2].narration[0].target: unknown target nope',
