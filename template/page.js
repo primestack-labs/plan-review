@@ -125,13 +125,15 @@ function playIndex(i) {
   $('#now').textContent = $('h2', card).textContent.replace(/^▶\s*/, '');
   $('#toggle').textContent = '⏸';
   const own = queue.filter((q) => q.sectionId === p.sectionId);
-  const done = own.indexOf(p);
   const seg = $$('#progress .seg').find((el) => el.dataset.section === p.sectionId);
-  $('.fill', seg).style.width = `${(done / own.length) * 100}%`;
+  for (const el of $$('#progress .seg[data-playing]')) if (el !== seg) delete el.dataset.playing;
+  seg.dataset.playing = 'true';
+  $('.fill', seg).style.width = `${((own.indexOf(p) + 1) / own.length) * 100}%`;
 }
 
 function stop() {
   player.pause();
+  for (const el of $$('#progress .seg[data-playing]')) delete el.dataset.playing;
   speaking?.classList.remove('speaking');
   speaking = null;
   $('#toggle').textContent = '▶';

@@ -51,7 +51,10 @@ button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--a
 #overview h2 .play, #decisions h2 .play { padding: 2px 8px; font-size: 14px; vertical-align: middle; margin-right: 6px; }
 #overview dd, .decision { transition: background .4s ease, box-shadow .4s ease; border-radius: 6px; }
 #overview dd.speaking, .decision.speaking { background: var(--speak); box-shadow: 0 0 0 2px var(--accent); }
-.seg .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); opacity: .35; }
+.seg .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); opacity: .35; transition: width .3s ease; }
+.seg[data-playing] { transform: scaleY(1.8); box-shadow: 0 0 0 2px var(--accent); animation: seg-pulse 1.4s ease-in-out infinite; }
+.seg[data-playing] .fill { opacity: .7; }
+@keyframes seg-pulse { 50% { filter: brightness(1.6); } }
 .seg[data-verdict=approved] { background: var(--approved); }
 .seg[data-verdict=commented] { background: var(--commented); }
 .counters { font-size: 12px; color: var(--muted); }
