@@ -12,9 +12,9 @@
 <body>
 {{body}}
 <div id="popover" hidden>
-  <select id="comment-type"><option value="change">Change</option><option value="question">Question</option><option value="concern">Concern</option></select>
+  <div id="comment-types"><button data-type="question">? Question</button><button data-type="change">✎ Change</button></div>
   <textarea id="comment-text" rows="3" placeholder="Your comment"></textarea>
-  <div class="actions"><button id="comment-cancel">Cancel</button><button id="comment-save">Add comment</button></div>
+  <div class="actions"><button id="comment-prev" title="Previous comment">‹</button><button id="comment-next" title="Next comment">›</button><span class="spacer"></span><button id="comment-cancel">Cancel</button><button id="comment-save">Add comment</button></div>
 </div>
 <div id="help" hidden><b>Keys</b> j/k next/previous section · space play/pause · c comment on selection · a approve section · q question section (opens the comment box) · ? this list</div>
 <script id="review-data" type="application/json">{{data}}</script>

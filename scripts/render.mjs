@@ -121,7 +121,7 @@ function renderSection(s, ctx) {
   ${sub('code', 'Code', blocks || '<p class="none">No code.</p>')}
   <details class="sub sub-executor" id="${h(s.id)}-executor"><summary>Executor detail</summary><div class="md" data-md="${h(s.id)}"></div><script type="text/markdown" id="md-${h(s.id)}">${s.executorDetail.replace(/<\/script/gi, '<\\/script')}</script></details>
   ${threads(s.id)}
-  <footer class="verdict"><button data-verdict="approved">✓ Approve</button><button data-verdict="commented">✎ Comment</button><button data-verdict="questioned">? Question</button></footer>
+  <footer class="verdict"><button data-verdict="questioned">? Question</button><button data-verdict="commented">✎ Change</button><button data-verdict="approved">✓ Approve</button></footer>
 </article>`;
 }
 

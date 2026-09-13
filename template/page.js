@@ -44,7 +44,7 @@ function sync() {
     }
     list.innerHTML = state.comments
       .filter((c) => c.anchor.sectionId === card.dataset.section)
-      .map((c) => `<div class="pin" data-comment="${c.id}"><b>${escape(c.type)}</b> <q>${escape(c.anchor.quote)}</q> ${escape(c.text)} <button class="remove" data-comment="${c.id}" title="Remove">×</button></div>`)
+      .map((c) => `<div class="pin" data-comment="${c.id}" data-type="${escape(c.type)}"><b>${c.type === 'question' ? 'Question' : 'Change'}</b> ${c.anchor.scope === 'section' ? '<span class="scope">Section</span>' : `<q>${escape(c.anchor.quote)}</q>`} ${escape(c.text)} <button class="remove" data-comment="${c.id}" title="Remove">×</button></div>`)
       .join('');
   }
   for (const row of $$('.decision')) {
@@ -112,7 +112,7 @@ function playIndex(i) {
   speaking?.classList.add('speaking');
   const card = document.getElementById(p.sectionId);
   delete card.dataset.collapsed;
-  speaking?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  if (!interacting()) speaking?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   setCurrentSection(p.sectionId);
   $('#now').textContent = $('h2', card).textContent;
   $('#toggle').textContent = '⏸';
@@ -166,18 +166,18 @@ for (const b of $$('button.play')) b.addEventListener('click', () => playSection
 for (const seg of $$('#progress .seg')) seg.addEventListener('click', () => playSection(seg.dataset.section));
 
 // ---------- verdicts, decisions, cards ----------
-function askForComment(sectionId, type) {
+function askForComment(sectionId, type, near) {
   if (submitted) return;
   if (commentOnSelection(sectionId, type)) return;
   const card = document.getElementById(sectionId);
-  openPopover({ sectionId, quote: $('h2', card).textContent.trim(), prefix: '', suffix: '' }, $('footer.verdict', card), type);
+  openPopover({ anchor: { sectionId, quote: $('h2', card).textContent.trim(), prefix: '', suffix: '', scope: 'section' }, near: near ?? $('footer.verdict', card), type });
 }
 
 for (const b of $$('footer.verdict button')) {
   b.addEventListener('click', () => {
     const sectionId = b.closest('article').dataset.section;
     if (b.dataset.verdict === 'approved') setVerdict(sectionId, 'approved');
-    else askForComment(sectionId, b.dataset.verdict === 'questioned' ? 'question' : 'change');
+    else askForComment(sectionId, b.dataset.verdict === 'questioned' ? 'question' : 'change', b);
   });
 }
 for (const input of $$('.decision input')) {
@@ -200,25 +200,89 @@ for (const header of $$('article.card > header')) {
 document.addEventListener('click', (e) => {
   if (submitted) return;
   const remove = e.target.closest('button.remove');
-  if (!remove) return;
-  state.comments = state.comments.filter((c) => c.id !== remove.dataset.comment);
-  sync();
-  persist();
+  if (remove) {
+    const gone = state.comments.find((c) => c.id === remove.dataset.comment);
+    state.comments = state.comments.filter((c) => c.id !== remove.dataset.comment);
+    if (pending?.editing === remove.dataset.comment) closePopover();
+    if (gone) refreshVerdict(gone.anchor.sectionId);
+    sync();
+    persist();
+    return;
+  }
+  const pin = e.target.closest('.pin');
+  if (pin) editComment(pin.dataset.comment);
 });
 
 // ---------- comments ----------
 const popover = $('#popover');
 let pending = null;
+let popoverType = 'change';
+const highlights = window.Highlight && window.CSS?.highlights ? CSS.highlights : null;
+const sectionIndex = new Map(sections.map((s, i) => [s.id, i]));
 
-function openPopover(anchor, near, type = 'change') {
-  pending = anchor;
-  $('#comment-type').value = type;
-  $('#comment-text').value = '';
-  popover.hidden = false;
+const interacting = () => !popover.hidden || !(window.getSelection()?.isCollapsed ?? true);
+const markRange = (range) => { if (highlights && range) highlights.set('review-selection', new Highlight(range)); };
+const clearMark = () => highlights?.delete('review-selection');
+const orderedComments = () => [...state.comments].sort((a, b) => (sectionIndex.get(a.anchor.sectionId) - sectionIndex.get(b.anchor.sectionId)) || (Number(a.id.slice(1)) - Number(b.id.slice(1))));
+
+function setPopoverType(type) {
+  popoverType = type;
+  for (const b of $$('#comment-types button')) b.classList.toggle('active', b.dataset.type === type);
+}
+
+function placePopover(near) {
   const rect = near.getBoundingClientRect();
   popover.style.top = `${window.scrollY + rect.bottom + 8}px`;
-  popover.style.left = `${Math.min(window.scrollX + rect.left, window.scrollX + window.innerWidth - 340)}px`;
+  popover.style.left = `${Math.max(16, Math.min(window.scrollX + rect.left, window.scrollX + window.innerWidth - 340))}px`;
+}
+
+function updatePopoverNav() {
+  const list = orderedComments();
+  const i = pending?.editing ? list.findIndex((c) => c.id === pending.editing) : -1;
+  $('#comment-prev').disabled = i <= 0;
+  $('#comment-next').disabled = i < 0 || i >= list.length - 1;
+}
+
+function openPopover({ anchor, near, type = 'change', text = '', editing = null }) {
+  pending = { anchor, editing };
+  setPopoverType(type);
+  $('#comment-text').value = text;
+  $('#comment-save').textContent = editing ? 'Save' : 'Add comment';
+  popover.hidden = false;
+  placePopover(near);
+  updatePopoverNav();
   $('#comment-text').focus();
+}
+
+function closePopover() {
+  popover.hidden = true;
+  pending = null;
+  clearMark();
+  window.getSelection()?.removeAllRanges();
+}
+
+function refreshVerdict(sectionId) {
+  const own = state.comments.filter((c) => c.anchor.sectionId === sectionId);
+  const section = state.sections[sectionId];
+  if (own.some((c) => c.type === 'question')) section.verdict = 'questioned';
+  else if (own.length) section.verdict = 'commented';
+  else if (section.verdict !== 'approved') section.verdict = null;
+}
+
+function saveComment() {
+  if (submitted || !pending) return;
+  const text = $('#comment-text').value.trim();
+  if (!text) return;
+  const { anchor, editing } = pending;
+  if (editing) {
+    const c = state.comments.find((x) => x.id === editing);
+    c.type = popoverType;
+    c.text = text;
+  } else state.comments.push({ id: `c${state.nextComment++}`, type: popoverType, text, anchor });
+  refreshVerdict(anchor.sectionId);
+  closePopover();
+  sync();
+  persist();
 }
 
 function anchorFromRange(range) {
@@ -230,7 +294,7 @@ function anchorFromRange(range) {
   const after = document.createRange();
   after.selectNodeContents(card);
   after.setStart(range.endContainer, range.endOffset);
-  const anchor = { sectionId: card.dataset.section, ...anchorFromSelection({ text: range.toString().trim(), before: before.toString(), after: after.toString() }) };
+  const anchor = { sectionId: card.dataset.section, ...anchorFromSelection({ text: range.toString().trim(), before: before.toString(), after: after.toString() }), scope: 'text' };
   const block = range.commonAncestorContainer.parentElement?.closest('details.block');
   if (block) anchor.blockId = block.id;
   const ui = range.commonAncestorContainer.parentElement?.closest('figure.mockup');
@@ -238,44 +302,87 @@ function anchorFromRange(range) {
   return anchor;
 }
 
+function rangeFromAnchor(card, anchor) {
+  const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  const starts = [];
+  let text = '';
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    nodes.push(n);
+    starts.push(text.length);
+    text += n.data;
+  }
+  const exact = text.indexOf(anchor.prefix + anchor.quote + anchor.suffix);
+  const offset = exact >= 0 ? exact + anchor.prefix.length : text.indexOf(anchor.quote);
+  if (offset < 0 || !anchor.quote) return null;
+  const locate = (pos) => {
+    let i = starts.findLastIndex((s) => s <= pos);
+    if (i < 0) i = 0;
+    return [nodes[i], Math.min(pos - starts[i], nodes[i].data.length)];
+  };
+  const range = document.createRange();
+  range.setStart(...locate(offset));
+  range.setEnd(...locate(offset + anchor.quote.length));
+  return range;
+}
+
+const rangeBox = (range) => ({ getBoundingClientRect: () => range.getBoundingClientRect() });
+
 function commentOnSelection(sectionId = null, type = 'change') {
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.toString().trim()) return false;
   const range = sel.getRangeAt(0);
   const anchor = anchorFromRange(range);
   if (!anchor || (sectionId && anchor.sectionId !== sectionId)) return false;
-  openPopover(anchor, range.getBoundingClientRect().height ? { getBoundingClientRect: () => range.getBoundingClientRect() } : range.startContainer.parentElement, type);
+  markRange(range);
+  openPopover({ anchor, near: range.getBoundingClientRect().height ? rangeBox(range) : range.startContainer.parentElement, type });
   return true;
+}
+
+function editComment(id) {
+  if (submitted) return;
+  const c = state.comments.find((x) => x.id === id);
+  if (!c) return;
+  const card = document.getElementById(c.anchor.sectionId);
+  delete card.dataset.collapsed;
+  clearMark();
+  let near = $('footer.verdict', card);
+  const range = c.anchor.scope === 'section' ? null : rangeFromAnchor(card, c.anchor);
+  if (range) {
+    markRange(range);
+    near = rangeBox(range);
+    range.startContainer.parentElement?.scrollIntoView({ block: 'center' });
+  } else card.scrollIntoView({ block: 'center' });
+  openPopover({ anchor: c.anchor, near, type: c.type, text: c.text, editing: id });
+}
+
+function moveComment(delta) {
+  const list = orderedComments();
+  const i = list.findIndex((c) => c.id === pending?.editing);
+  const target = list[i + delta];
+  if (!target) return;
+  if ($('#comment-text').value.trim()) saveComment();
+  else closePopover();
+  editComment(target.id);
 }
 
 document.addEventListener('mouseup', (e) => {
   if (submitted) return;
   if (popover.contains(e.target) || e.target.closest('button, input, select, textarea')) return;
-  setTimeout(commentOnSelection, 0);
+  setTimeout(() => { if (popover.hidden) commentOnSelection(); }, 0);
 });
 for (const b of $$('button.comment-ui')) {
   b.addEventListener('click', () => {
     if (submitted) return;
     const figure = b.closest('figure.mockup');
-    openPopover({ sectionId: b.closest('article').dataset.section, quote: $('figcaption', figure).firstChild.textContent.trim(), prefix: '', suffix: '', uiId: b.dataset.ui }, b);
+    openPopover({ anchor: { sectionId: b.closest('article').dataset.section, quote: $('figcaption', figure).firstChild.textContent.trim(), prefix: '', suffix: '', scope: 'section', uiId: b.dataset.ui }, near: b, type: 'change' });
   });
 }
-$('#comment-cancel').addEventListener('click', () => { popover.hidden = true; pending = null; });
-$('#comment-save').addEventListener('click', () => {
-  if (submitted) return;
-  const text = $('#comment-text').value.trim();
-  if (!text || !pending) return;
-  const type = $('#comment-type').value;
-  state.comments.push({ id: `c${state.nextComment++}`, type, text, anchor: pending });
-  const verdict = type === 'question' ? 'questioned' : 'commented';
-  const section = state.sections[pending.sectionId];
-  if (verdict === 'questioned' || section.verdict !== 'questioned') section.verdict = verdict;
-  popover.hidden = true;
-  pending = null;
-  window.getSelection()?.removeAllRanges();
-  sync();
-  persist();
-});
+for (const b of $$('#comment-types button')) b.addEventListener('click', () => setPopoverType(b.dataset.type));
+$('#comment-prev').addEventListener('click', () => moveComment(-1));
+$('#comment-next').addEventListener('click', () => moveComment(1));
+$('#comment-cancel').addEventListener('click', closePopover);
+$('#comment-save').addEventListener('click', saveComment);
 
 // ---------- keyboard ----------
 document.addEventListener('keydown', (e) => {
@@ -293,7 +400,7 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'a') setVerdict(current, 'approved');
   else if (e.key === 'q') askForComment(current, 'question');
   else if (e.key === '?') $('#help').hidden = !$('#help').hidden;
-  else if (e.key === 'Escape') { popover.hidden = true; $('#help').hidden = true; }
+  else if (e.key === 'Escape') { closePopover(); $('#help').hidden = true; }
 });
 
 // ---------- submit ----------

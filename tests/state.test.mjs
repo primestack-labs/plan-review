@@ -86,7 +86,7 @@ test('counters and outcome', () => {
   assert.equal(outcome(sections, s), 'changes-requested');
   for (const id of Object.keys(s.sections)) s.sections[id].verdict = 'approved';
   assert.equal(outcome(sections, s), 'approved');
-  s.comments.push({ id: 'c1', type: 'concern', text: 'x', anchor: { sectionId: 't0-preamble', quote: 'q', prefix: '', suffix: '' } });
+  s.comments.push({ id: 'c1', type: 'change', text: 'x', anchor: { sectionId: 't0-preamble', quote: 'q', prefix: '', suffix: '' } });
   assert.equal(outcome(sections, s), 'changes-requested');
 });
 

@@ -102,6 +102,12 @@ button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--a
 .mockup .notes { font-size: 13px; color: var(--muted); }
 .threads, .comments { margin-top: 12px; display: grid; gap: 6px; }
 .thread, .pin { border: 1px dashed var(--line); border-radius: 6px; padding: 6px 10px; font-size: 14px; }
+.pin { cursor: pointer; }
+.pin:hover { border-style: solid; }
+.pin[data-type=question] { border-color: var(--questioned); }
+.pin[data-type=change] { border-color: var(--commented); }
+.pin .scope { font-size: 11px; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; }
+::highlight(review-selection) { background: var(--speak); }
 .thread blockquote, .pin q { color: var(--muted); font-style: italic; margin: 0; }
 .thread .reply { margin: 4px 0 0; }
 .thread[data-status=rejected] { border-color: var(--questioned); }
@@ -121,7 +127,14 @@ button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--a
 #popover { position: absolute; z-index: 20; width: 320px; max-width: calc(100vw - 32px); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); display: grid; gap: 8px; }
 #popover[hidden] { display: none; }
 #popover textarea, #popover select { font: inherit; width: 100%; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); padding: 6px; }
-#popover .actions { display: flex; justify-content: flex-end; gap: 8px; }
+#popover .actions { display: flex; align-items: center; gap: 8px; }
+#popover .actions .spacer { flex: 1; }
+#comment-types { display: flex; gap: 8px; }
+#comment-types button { flex: 1; font-weight: 600; border-width: 2px; }
+#comment-types button[data-type=question] { border-color: var(--questioned); color: var(--questioned); }
+#comment-types button[data-type=change] { border-color: var(--commented); color: var(--commented); }
+#comment-types button[data-type=question].active { background: var(--questioned); color: var(--card); box-shadow: none; }
+#comment-types button[data-type=change].active { background: var(--commented); color: var(--card); box-shadow: none; }
 #help { position: fixed; bottom: 64px; left: 16px; right: 16px; z-index: 20; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 13px; }
 #help[hidden] { display: none; }
 .foot { position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; display: flex; align-items: center; gap: 14px; padding: 10px 16px; background: var(--card); border-top: 1px solid var(--line); font-size: 13px; }

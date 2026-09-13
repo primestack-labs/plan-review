@@ -37,7 +37,7 @@
         "additionalProperties": false,
         "properties": {
           "id": { "type": "string", "minLength": 1 },
-          "type": { "enum": ["change", "question", "concern"] },
+          "type": { "enum": ["change", "question"] },
           "text": { "type": "string", "minLength": 1 },
           "anchor": {
             "type": "object",
@@ -48,6 +48,7 @@
               "quote": { "type": "string" },
               "prefix": { "type": "string" },
               "suffix": { "type": "string" },
+              "scope": { "enum": ["text", "section"] },
               "blockId": { "type": "string" },
               "uiId": { "type": "string" }
             }
