@@ -83,13 +83,16 @@ function setCurrentSection(sectionId) {
   document.getElementById(currentSection).dataset.current = 'true';
 }
 
-const sectionObserver = new IntersectionObserver((entries) => {
-  const visible = entries.filter((entry) => entry.isIntersecting);
-  if (!visible.length) return;
-  const topmost = visible.reduce((a, b) => (a.boundingClientRect.top <= b.boundingClientRect.top ? a : b));
-  setCurrentSection(topmost.target.dataset.section);
-}, { threshold: 0.5 });
-for (const card of $$('article.card')) sectionObserver.observe(card);
+const cards = $$('article.card');
+let scrollTick = false;
+function pickCurrentSection() {
+  scrollTick = false;
+  const line = $('#bar').getBoundingClientRect().bottom + 24;
+  let best = cards[0];
+  for (const card of cards) if (card.getBoundingClientRect().top <= line) best = card;
+  if (best) setCurrentSection(best.dataset.section);
+}
+window.addEventListener('scroll', () => { if (!scrollTick) { scrollTick = true; requestAnimationFrame(pickCurrentSection); } }, { passive: true });
 
 // ---------- audio ----------
 const queue = buildQueue(sections).filter((p) => audioIndex[p.id]);
@@ -245,14 +248,16 @@ function openPopover({ anchor, near, text = '', editing = null }) {
   popover.hidden = false;
   placePopover(near);
   updatePopoverNav();
+  requestAnimationFrame(() => popover.classList.add('open'));
   $('#comment-text').focus();
 }
 
 function closePopover() {
-  popover.hidden = true;
+  popover.classList.remove('open');
   pending = null;
   clearMark();
   window.getSelection()?.removeAllRanges();
+  setTimeout(() => { if (!pending) popover.hidden = true; }, 180);
 }
 
 function refreshVerdict(sectionId) {
@@ -375,20 +380,10 @@ $('#comment-save').addEventListener('click', saveComment);
 
 // ---------- keyboard ----------
 document.addEventListener('keydown', (e) => {
-  if (submitted) return;
-  if (e.target instanceof Element && e.target.closest('input, textarea, select')) return;
-  const current = currentSection ?? sectionOrder(sections, null, 1);
-  const go = (delta) => {
-    setCurrentSection(sectionOrder(sections, currentSection, delta));
-    document.getElementById(currentSection).scrollIntoView({ block: 'start', behavior: 'smooth' });
-  };
-  if (e.key === 'j') go(1);
-  else if (e.key === 'k') go(-1);
-  else if (e.key === ' ') { e.preventDefault(); $('#toggle').click(); }
-  else if (e.key === 'c') askForComment(current);
-  else if (e.key === 'a') setVerdict(current, 'approved');
-  else if (e.key === '?') $('#help').hidden = !$('#help').hidden;
-  else if (e.key === 'Escape') { closePopover(); $('#help').hidden = true; }
+  if (submitted || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.target instanceof Element && e.target.closest('input, textarea, select, button')) return;
+  if (e.key === ' ') { e.preventDefault(); $('#toggle').click(); }
+  else if (e.key === 'Escape') closePopover();
 });
 
 // ---------- submit ----------

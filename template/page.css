@@ -74,18 +74,19 @@ button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--a
 .decision[data-resolved=true] .kind { color: var(--approved); }
 
 /* cards */
-.card { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 10px; padding: 14px 18px; margin: 18px 0; }
+.card { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 10px; padding: 14px 18px; margin: 18px 0; transition: box-shadow .35s ease, border-color .35s ease; }
 .card[data-verdict=approved] { border-left-color: var(--approved); }
 .card[data-verdict=commented] { border-left-color: var(--commented); }
 .card[data-changed=true] { border-left-color: var(--changed); }
-.card[data-current=true] { outline: 2px solid var(--accent); outline-offset: 2px; }
+.card[data-current=true] { box-shadow: 0 0 0 2px var(--accent), 0 6px 24px rgba(0, 0, 0, .12); }
 .card > header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; cursor: pointer; }
 .card > header .play { padding: 2px 8px; }
 .card[data-heard=true] > header .play { color: var(--approved); border-color: var(--approved); }
 .card[data-collapsed=true] > :not(header) { display: none; }
 .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; color: var(--card); background: var(--changed); }
-.sub { margin-top: 12px; padding: 4px 8px; border-radius: 6px; transition: background .3s; }
-.sub.speaking, .block.speaking { background: var(--speak); outline: 2px solid var(--accent); }
+.sub { margin-top: 12px; padding: 4px 8px; border-radius: 6px; transition: background .4s ease, box-shadow .4s ease; }
+.block { transition: background .4s ease, box-shadow .4s ease; }
+.sub.speaking, .block.speaking { background: var(--speak); box-shadow: 0 0 0 2px var(--accent); }
 .block { border: 1px solid var(--line); border-radius: 6px; margin: 6px 0; padding: 6px 10px; }
 .block summary { cursor: pointer; }
 .block .role { font-weight: 600; margin-right: 6px; }
@@ -119,14 +120,13 @@ button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--a
 .verdict button[data-verdict=commented].active { background: var(--commented); color: var(--card); box-shadow: none; }
 
 /* popover, help, footer */
-#popover { position: absolute; z-index: 20; width: 480px; max-width: calc(100vw - 32px); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); display: grid; gap: 8px; }
+#popover { position: absolute; z-index: 20; width: 480px; max-width: calc(100vw - 32px); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); display: grid; gap: 8px; opacity: 0; transform: translateY(-6px); transition: opacity .18s ease, transform .18s ease; }
+#popover.open { opacity: 1; transform: none; }
 #popover[hidden] { display: none; }
 #popover textarea { font: inherit; width: 100%; min-height: 84px; max-height: 40vh; resize: vertical; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); padding: 6px; }
 #popover .actions { display: flex; align-items: center; gap: 8px; }
 #popover .actions .spacer { flex: 1; }
 
-#help { position: fixed; bottom: 64px; left: 16px; right: 16px; z-index: 20; background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font-size: 13px; }
-#help[hidden] { display: none; }
 .foot { position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; display: flex; align-items: center; gap: 14px; padding: 10px 16px; background: var(--card); border-top: 1px solid var(--line); font-size: 13px; }
 .foot #blockers { color: var(--muted); flex: 1; }
 .foot #submit { background: var(--accent); color: #fff; border-color: var(--accent); padding: 6px 16px; }
