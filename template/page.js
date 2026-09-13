@@ -368,7 +368,7 @@ function moveComment(delta) {
 
 document.addEventListener('mouseup', (e) => {
   if (submitted) return;
-  if (popover.contains(e.target) || e.target.closest('button, input, select, textarea')) return;
+  if (!(e.target instanceof Element) || popover.contains(e.target) || e.target.closest('button, input, select, textarea')) return;
   setTimeout(() => { if (popover.hidden) commentOnSelection(); }, 0);
 });
 for (const b of $$('button.comment-ui')) {
