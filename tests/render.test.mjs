@@ -16,7 +16,7 @@ test('one card per section, in manifest order', () => {
   const m = load();
   const html = render(m);
   assert.equal(count(html, /<article class="card"/g), m.sections.length);
-  const stripped = html.replace(/<button class="play"[^>]*>/g, '').replace(/<button class="seg intro"[^>]*>/g, '');
+  const stripped = html.replace(/<button class="play"[^>]*>/g, '').replace(/<button class="seg intro"[^>]*>/g, '').replace(/<button class="chapter[^"]*"[^>]*>/g, '');
   assert.deepEqual(attrValues(stripped, 'data-section').filter((v, i, a) => a.indexOf(v) === i), m.sections.map((s) => s.id));
 });
 

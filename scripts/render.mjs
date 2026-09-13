@@ -29,6 +29,8 @@ const fmtSec = (seconds) => (seconds ? `${Math.max(1, Math.round(seconds / 60))}
 const list = (items) => (items.length ? `<ul>${items.map((i) => `<li>${h(i)}</li>`).join('')}</ul>` : '<p class="none">None.</p>');
 
 const INTRO_TITLES = { overview: 'Overview', decisions: 'Decisions needed' };
+const INTRO_LABELS = { overview: 'Ov', decisions: 'Dec' };
+const chapterLabel = (s) => (s.kind === 'task' ? `T${s.ordinal}` : s.kind === 'preamble' ? 'P' : 'W');
 
 function renderHeader(manifest, audioIndex, round) {
   const intro = introSections(manifest);
@@ -38,19 +40,27 @@ function renderHeader(manifest, audioIndex, round) {
     ...intro.map((s) => `<button class="seg intro" data-section="${h(s.id)}" style="flex-grow:${listeningSeconds(s, audioIndex) || 1}" title="${INTRO_TITLES[s.id]}"><span class="fill"></span></button>`),
     ...manifest.sections.map((s) => `<button class="seg" data-section="${h(s.id)}" style="flex-grow:${listeningSeconds(s, audioIndex) || 1}" title="${h(s.title)}"><span class="fill"></span></button>`),
   ].join('');
+  const chapters = [
+    ...intro.map((s) => `<button class="chapter intro" data-section="${h(s.id)}" style="flex-grow:${listeningSeconds(s, audioIndex) || 1}" title="${INTRO_TITLES[s.id]}">${INTRO_LABELS[s.id]}</button>`),
+    ...manifest.sections.map((s) => `<button class="chapter" data-section="${h(s.id)}" style="flex-grow:${listeningSeconds(s, audioIndex) || 1}" title="${h(s.title)}">${chapterLabel(s)}</button>`),
+  ].join('');
   return `<header class="bar" id="bar">
   <div class="row">
     <h1>${h(manifest.plan.title)}</h1><span class="round">Round ${round}</span>
     <div class="transport">
       <button id="prev" title="Previous section">⏮</button>
+      <button id="back" title="Back 15 seconds">⟲15</button>
       <button id="toggle" title="Play or pause">▶</button>
+      <button id="fwd" title="Forward 15 seconds">⟳15</button>
       <button id="next" title="Next section">⏭</button>
+      <label class="stop-at-end"><input id="stop-at-end" type="checkbox"> Stop at section end</label>
       <label>Speed <input id="speed" type="range" min="0.8" max="2" step="0.1" value="1"><span id="speed-value">1.0×</span></label>
       <span id="now">Not playing</span>
       <span id="clock">0:00 / 0:00</span>
     </div>
   </div>
   <div class="progress" id="progress">${segments}</div>
+  <div class="chapters" id="chapters">${chapters}</div>
   <div class="row counters">
     <span id="count-approved">0 approved</span><span id="count-commented">0 commented</span><span id="count-decisions">0 open decisions</span>
     <span class="budget">read ${fmtMin(readTotal)} · listen ${fmtSec(listenTotal)}</span>

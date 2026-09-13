@@ -55,8 +55,9 @@ function sync() {
   }
   for (const seg of $$('#progress .seg')) {
     const s = state.sections[seg.dataset.section];
+    if (!s) continue;
     seg.dataset.verdict = s.verdict ?? '';
-    $('.fill', seg).style.width = s.heard ? '100%' : '0';
+    if (seg.dataset.playing !== 'true') $('.fill', seg).style.width = s.heard ? '100%' : '0';
   }
   const c = counters(sections, decisions, state);
   $('#count-approved').textContent = `${c.approved} approved`;
@@ -171,6 +172,7 @@ function stop() {
 player.addEventListener('ended', () => {
   const p = queue[cursor];
   const next = queue[cursor + 1];
+  const boundary = !next || next.sectionId !== p.sectionId;
   if (!next || next.sectionId !== p.sectionId) {
     if (state.sections[p.sectionId]) {
       state.sections[p.sectionId].heard = true;
@@ -178,8 +180,14 @@ player.addEventListener('ended', () => {
       persist();
     } else $$('#progress .seg').find((el) => el.dataset.section === p.sectionId).querySelector('.fill').style.width = '100%';
   }
+  if (boundary && $('#stop-at-end').checked) return stop();
   playIndex(cursor + 1);
 });
+
+const skip = (delta) => { if (cursor >= 0) seekTo(Math.max(0, queue[cursor].start + (player.currentTime || 0) + delta)); };
+$('#back').addEventListener('click', () => skip(-15));
+$('#fwd').addEventListener('click', () => skip(15));
+for (const b of $$('#chapters .chapter')) b.addEventListener('click', () => playSection(b.dataset.section));
 
 const playSection = (sectionId) => {
   const i = queue.findIndex((p) => p.sectionId === sectionId);
