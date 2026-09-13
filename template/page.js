@@ -376,7 +376,7 @@ $('#comment-save').addEventListener('click', saveComment);
 // ---------- keyboard ----------
 document.addEventListener('keydown', (e) => {
   if (submitted) return;
-  if (e.target.closest('input, textarea, select')) return;
+  if (e.target instanceof Element && e.target.closest('input, textarea, select')) return;
   const current = currentSection ?? sectionOrder(sections, null, 1);
   const go = (delta) => {
     setCurrentSection(sectionOrder(sections, currentSection, delta));
