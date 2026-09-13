@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
@@ -196,7 +196,7 @@ export function readPrevious(dir) {
   return { manifest: read('manifest.json'), submission: read('submission.json'), replies: read('replies.json') };
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
     options: { audio: { type: 'string' }, previous: { type: 'string' }, round: { type: 'string', default: '1' }, out: { type: 'string' } },

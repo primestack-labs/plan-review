@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -71,7 +71,7 @@ export function createReviewServer({ dir, round, planHash, onSubmit }) {
   });
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { values } = parseArgs({ options: { dir: { type: 'string' }, round: { type: 'string' }, 'no-open': { type: 'boolean', default: false } } });
   if (!values.dir || !values.round) {
     console.error('usage: serve.mjs --dir <reviewDir> --round <n> [--no-open]');

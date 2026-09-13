@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 export function diffManifests(previous, next) {
@@ -14,7 +14,7 @@ export function diffManifests(previous, next) {
   return result;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const [prev, next] = process.argv.slice(2);
   if (!prev || !next) {
     console.error('usage: diff.mjs <previous.json> <next.json>');

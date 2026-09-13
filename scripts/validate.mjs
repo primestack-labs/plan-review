@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { validate } from './lib/schema.mjs';
@@ -60,7 +60,7 @@ export function stampHashes(manifest, planText) {
   return manifest;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { positionals, values } = parseArgs({ allowPositionals: true, options: { plan: { type: 'string' } } });
   const [manifestPath] = positionals;
   if (!manifestPath) {
