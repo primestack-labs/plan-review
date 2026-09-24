@@ -10,6 +10,20 @@ export const SUBMISSION_SCHEMA = loadSchema('submission.schema.json');
 
 const SUB_TARGETS = ['summary', 'interfaces', 'decisions', 'risks', 'ui'];
 const OVERVIEW_TARGETS = ['goal', 'architecture', 'techStack', 'taskMap'];
+const MAX_PARAGRAPH_WORDS = 90;
+const MAX_SENTENCE_WORDS = 35;
+
+export function narrationIssues(text) {
+  const issues = [];
+  if (/[—–]/.test(text)) issues.push('contains a dash; use a comma or a full stop');
+  if (/[()]/.test(text)) issues.push('contains parentheses; make the aside its own sentence');
+  if (/\[\[/.test(text)) issues.push('contains [[');
+  const words = text.split(/\s+/).filter(Boolean).length;
+  if (words > MAX_PARAGRAPH_WORDS) issues.push(`${words} words; keep a paragraph under ${MAX_PARAGRAPH_WORDS}`);
+  const longest = Math.max(...text.split(/(?<=[.!?])\s+/).map((s) => s.split(/\s+/).filter(Boolean).length));
+  if (longest > MAX_SENTENCE_WORDS) issues.push(`a sentence of ${longest} words; keep sentences under ${MAX_SENTENCE_WORDS}`);
+  return issues;
+}
 
 export function validateManifest(manifest) {
   const errors = validate(MANIFEST_SCHEMA, manifest);
@@ -39,9 +53,11 @@ export function validateManifest(manifest) {
   });
   (manifest.narration?.overview ?? []).forEach((p, j) => {
     if (!OVERVIEW_TARGETS.includes(p.target)) errors.push(`$.narration.overview[${j}].target: unknown target ${p.target}`);
+    for (const issue of narrationIssues(p.text)) errors.push(`$.narration.overview[${j}].text: ${issue}`);
   });
   (manifest.narration?.decisions ?? []).forEach((p, j) => {
     if (!decisionIds.has(p.target)) errors.push(`$.narration.decisions[${j}].target: unknown decision ${p.target}`);
+    for (const issue of narrationIssues(p.text)) errors.push(`$.narration.decisions[${j}].text: ${issue}`);
   });
   manifest.taskMap.nodes.forEach((n, i) => {
     if (!sectionIds.has(n.id)) errors.push(`$.taskMap.nodes[${i}].id: unknown section ${n.id}`);
@@ -58,6 +74,7 @@ export function validateManifest(manifest) {
     const targets = new Set([...SUB_TARGETS, ...s.blocks.map((b) => b.id)]);
     s.narration.forEach((p, j) => {
       if (!targets.has(p.target)) errors.push(`$.sections[${i}].narration[${j}].target: unknown target ${p.target}`);
+      for (const issue of narrationIssues(p.text)) errors.push(`$.sections[${i}].narration[${j}].text: ${issue}`);
     });
   });
   return errors;
