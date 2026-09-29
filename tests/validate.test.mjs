@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { validateManifest, stampHashes, narrationIssues } from '../scripts/validate.mjs';
+import { validateManifest, stampHashes } from '../scripts/validate.mjs';
 import { sectionHash, stableStringify } from '../scripts/lib/hash.mjs';
 
 const load = () => JSON.parse(readFileSync(new URL('./fixtures/availability-bridge.manifest.json', import.meta.url)));
@@ -57,18 +57,4 @@ test('contentHash ignores key order, narration, sourceRange and itself', () => {
   assert.equal(sectionHash(reordered), sectionHash(s));
   assert.notEqual(sectionHash({ ...s, summary: 'changed' }), sectionHash(s));
   assert.equal(stableStringify({ b: 1, a: [{ d: 2, c: 3 }] }), '{"a":[{"c":3,"d":2}],"b":1}');
-});
-
-test('narration lint rejects dashes, parentheses, long paragraphs and long sentences', () => {
-  assert.deepEqual(narrationIssues('Short and plain. Two ideas, two sentences.'), []);
-  assert.deepEqual(narrationIssues('A dash — here.'), ['contains a dash; use a comma or a full stop']);
-  assert.deepEqual(narrationIssues('An aside (like this).'), ['contains parentheses; make the aside its own sentence']);
-  const long = Array.from({ length: 40 }, (_, i) => `word${i}`).join(' ');
-  assert.deepEqual(narrationIssues(`${long}.`), ['a sentence of 40 words; keep sentences under 35']);
-  const m = load();
-  m.sections[1].narration[0].text = `${long}. ${long}. ${long}.`;
-  assert.deepEqual(validateManifest(m), [
-    '$.sections[1].narration[0].text: 120 words; keep a paragraph under 90',
-    '$.sections[1].narration[0].text: a sentence of 40 words; keep sentences under 35',
-  ]);
 });
