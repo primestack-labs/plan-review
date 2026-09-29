@@ -1,10 +1,11 @@
 import { spawn } from 'node:child_process';
 import { realpathSync } from 'node:fs';
-import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { access, mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { sha1 } from './lib/hash.mjs';
+import { readConfig } from './lib/config.mjs';
 
 export const introSections = (manifest) => [
   { id: 'overview', narration: manifest.narration?.overview ?? [] },
@@ -46,7 +47,19 @@ export async function generateAudio(manifest, outDir, { voice = '', rate = '', c
 
   const ordered = Object.fromEntries(chunks.map((c) => [c.id, index[c.id]]));
   await writeFile(join(outDir, 'index.json'), `${JSON.stringify(ordered, null, 2)}\n`);
+  await pruneStale(outDir, new Set(Object.values(ordered).map((e) => e.file)));
   return ordered;
+}
+
+export async function pruneStale(outDir, keep) {
+  let removed = 0;
+  for (const name of await readdir(outDir)) {
+    if (name.endsWith('.m4a') && !keep.has(name)) {
+      await unlink(join(outDir, name));
+      removed++;
+    }
+  }
+  return removed;
 }
 
 export function runSay(path, text, { voice, rate }) {
@@ -80,15 +93,18 @@ export function runAfinfo(path) {
 if (realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
-    options: { out: { type: 'string' }, voice: { type: 'string', default: '' }, rate: { type: 'string', default: '' } },
+    options: { out: { type: 'string' }, voice: { type: 'string' }, rate: { type: 'string' } },
   });
   const [manifestPath] = positionals;
   if (!manifestPath || !values.out) {
-    console.error('usage: audio.mjs <manifest.json> --out <dir> [--voice V] [--rate R]');
+    console.error('usage: audio.mjs <manifest.json> --out <dir> [--voice V] [--rate R]  (defaults from ~/.claude/plan-review/config.json)');
     process.exit(2);
   }
+  const config = readConfig();
+  const voice = values.voice ?? config.voice ?? '';
+  const rate = values.rate ?? config.rate ?? '';
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-  const index = await generateAudio(manifest, values.out, { voice: values.voice, rate: values.rate });
+  const index = await generateAudio(manifest, values.out, { voice, rate });
   const total = Object.values(index).reduce((sum, e) => sum + e.duration, 0);
-  console.log(`${Object.keys(index).length} paragraph(s), ${Math.round(total / 60)} min of audio in ${values.out}`);
+  console.log(`${Object.keys(index).length} paragraph(s), ${Math.round(total / 60)} min of audio in ${values.out}, voice ${voice || 'system default'}`);
 }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { narrationChunks, audioFileName, generateAudio } from '../scripts/audio.mjs';
+import { narrationChunks, audioFileName, generateAudio, pruneStale } from '../scripts/audio.mjs';
 
 const manifest = JSON.parse(readFileSync(new URL('./fixtures/availability-bridge.manifest.json', import.meta.url)));
 const paragraphIds = [...manifest.narration.overview, ...manifest.narration.decisions, ...manifest.sections.flatMap((s) => s.narration)].map((p) => p.id);
@@ -61,4 +61,12 @@ test('generateAudio does not treat a leftover .partial.m4a as cached', async () 
   const say = async (path, text) => { calls.push(text); writeFileSync(path, ''); };
   await generateAudio(manifest, outDir, { say, probe: async () => 1 });
   assert.ok(calls.includes(firstChunk.text));
+});
+
+test('generateAudio prunes files the index no longer references', async () => {
+  const outDir = mkdtempSync(join(tmpdir(), 'plan-review-audio-'));
+  writeFileSync(join(outDir, 'stale.m4a'), '');
+  await generateAudio(manifest, outDir, { say: async (path) => writeFileSync(path, ''), probe: async () => 1 });
+  assert.ok(!existsSync(join(outDir, 'stale.m4a')));
+  assert.equal(await pruneStale(outDir, new Set()), paragraphIds.length);
 });

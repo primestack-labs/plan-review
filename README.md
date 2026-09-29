@@ -24,3 +24,11 @@ To go straight from a saved plan to review, add one line to `~/.claude/CLAUDE.md
     tests/                         node --test tests/
 
 Review artifacts live in `~/.claude/plan-review/<repo>/<plan>/`.
+
+## Voice
+
+`~/.claude/plan-review/config.json` holds the `say` voice and rate every generation uses, e.g. `{ "voice": "Jamie (Premium)" }`. `say` falls back to the compact system voice without an error when a voice is missing, and macOS upgrades drop downloaded voices, so after editing the config or upgrading run:
+
+    npm run check-voice
+
+It synthesises a probe with the configured voice and with a bogus name and fails when the two are identical.

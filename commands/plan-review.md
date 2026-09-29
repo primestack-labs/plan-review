@@ -21,7 +21,7 @@ PREV=$DIR/rounds/$((ROUND - 1))      # only when ROUND > 1
 1. `mkdir -p "$DIR"`.
 2. If `$DIR/manifest.json` is missing, or `node $PLUGIN/scripts/validate.mjs "$DIR/manifest.json"` fails, or the plan's sha1 differs from `plan.hash` in the manifest (`shasum "$PLAN_PATH"`): invoke the `plan-review-manifest` skill with the plan path and `$DIR/manifest.json`. It writes the manifest and leaves it valid.
 3. `node $PLUGIN/scripts/validate.mjs "$DIR/manifest.json" --plan "$PLAN_PATH"` — must print `valid: N section(s)`.
-4. `node $PLUGIN/scripts/audio.mjs "$DIR/manifest.json" --out "$DIR/audio" [--voice V] [--rate R]`.
+4. `node $PLUGIN/scripts/audio.mjs "$DIR/manifest.json" --out "$DIR/audio" [--voice V] [--rate R]`. Without flags the voice and rate come from `~/.claude/plan-review/config.json` (`{ "voice": "Jamie (Premium)" }`). After changing that file, or after a macOS upgrade, run `npm run check-voice` in the plugin repo once: it fails when `say` silently falls back to the compact system voice.
 5. `node $PLUGIN/scripts/render.mjs "$DIR/manifest.json" --audio "$DIR/audio/index.json" --out "$DIR/index.html" --round $ROUND` plus `--previous "$PREV"` when `ROUND > 1`.
 6. Tell the user the page is opening and that Submit brings the review back here. Run `node $PLUGIN/scripts/serve.mjs --dir "$DIR" --round $ROUND` as a **background** Bash task. Do nothing else while it runs; the task's exit re-invokes you.
 7. When the task exits with `submitted: <path>` on stdout, invoke the `plan-review-respond` skill with that path. If it exits any other way, show its output and stop.
