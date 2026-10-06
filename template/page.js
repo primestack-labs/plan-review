@@ -55,9 +55,9 @@ function sync() {
   }
   for (const seg of $$('#progress .seg')) {
     const s = state.sections[seg.dataset.section];
-    if (!s) continue;
-    seg.dataset.verdict = s.verdict ?? '';
-    if (seg.dataset.playing !== 'true') $('.fill', seg).style.width = s.heard ? '100%' : '0';
+    const heard = s ? s.heard : state.heardIntro.includes(seg.dataset.section);
+    if (s) seg.dataset.verdict = s.verdict ?? '';
+    if (seg.dataset.playing !== 'true') $('.fill', seg).style.width = heard ? '100%' : '0';
   }
   const c = counters(sections, decisions, state);
   $('#count-approved').textContent = `${c.approved} approved`;
@@ -173,12 +173,12 @@ player.addEventListener('ended', () => {
   const p = queue[cursor];
   const next = queue[cursor + 1];
   const boundary = !next || next.sectionId !== p.sectionId;
-  if (!next || next.sectionId !== p.sectionId) {
-    if (state.sections[p.sectionId]) {
-      state.sections[p.sectionId].heard = true;
-      sync();
-      persist();
-    } else $$('#progress .seg').find((el) => el.dataset.section === p.sectionId).querySelector('.fill').style.width = '100%';
+  if (boundary) {
+    if (state.sections[p.sectionId]) state.sections[p.sectionId].heard = true;
+    else if (!state.heardIntro.includes(p.sectionId)) state.heardIntro.push(p.sectionId);
+    for (const el of $$('#progress .seg[data-playing]')) delete el.dataset.playing;
+    sync();
+    persist();
   }
   if (boundary && $('#stop-at-end').checked) return stop();
   playIndex(cursor + 1);
@@ -190,6 +190,7 @@ $('#fwd').addEventListener('click', () => skip(15));
 for (const b of $$('#chapters .chapter')) b.addEventListener('click', () => playSection(b.dataset.section));
 
 const playSection = (sectionId) => {
+  if (!sectionId) return;
   const i = queue.findIndex((p) => p.sectionId === sectionId);
   if (i >= 0) playIndex(i);
   else document.getElementById(sectionId).scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -211,6 +212,11 @@ $('#speed').addEventListener('input', (e) => {
   player.playbackRate = Number(e.target.value);
   $('#speed-value').textContent = `${Number(e.target.value).toFixed(1)}×`;
 });
+function nudgeSpeed(delta) {
+  const input = $('#speed');
+  input.value = Math.min(Number(input.max), Math.max(Number(input.min), Number(input.value) + delta)).toFixed(1);
+  input.dispatchEvent(new Event('input'));
+}
 for (const b of $$('button.play')) b.addEventListener('click', () => playSection(b.dataset.section));
 for (const seg of $$('#progress .seg')) {
   seg.addEventListener('click', (e) => {
@@ -434,11 +440,24 @@ $('#comment-cancel').addEventListener('click', closePopover);
 $('#comment-save').addEventListener('click', saveComment);
 
 // ---------- keyboard ----------
+const SHORTCUTS = {
+  'Space': () => $('#toggle').click(),
+  'Shift+Space': () => playSection(playingSection()),
+  'Shift+ArrowLeft': () => skip(-15),
+  'Shift+ArrowRight': () => skip(15),
+  'Shift+ArrowUp': () => $('#prev').click(),
+  'Shift+ArrowDown': () => $('#next').click(),
+  'Alt+ArrowLeft': () => nudgeSpeed(-0.1),
+  'Alt+ArrowRight': () => nudgeSpeed(0.1),
+};
 document.addEventListener('keydown', (e) => {
-  if (submitted || e.metaKey || e.ctrlKey || e.altKey) return;
-  if (e.target instanceof Element && e.target.closest('input, textarea, select, button')) return;
-  if (e.key === ' ') { e.preventDefault(); $('#toggle').click(); }
-  else if (e.key === 'Escape') closePopover();
+  if (submitted) return;
+  if (e.key === 'Escape') return closePopover();
+  if (e.metaKey || e.ctrlKey || (e.target instanceof Element && e.target.closest('input, textarea, select'))) return;
+  const action = SHORTCUTS[`${e.shiftKey ? 'Shift+' : ''}${e.altKey ? 'Alt+' : ''}${e.key === ' ' ? 'Space' : e.key}`];
+  if (!action) return;
+  e.preventDefault();
+  action();
 });
 
 // ---------- submit ----------

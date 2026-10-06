@@ -29,8 +29,9 @@ test('mergeDraft restores known ids and drops unknown ones', () => {
     sections: { 't1-bridge-service': { verdict: 'commented', heard: true }, 't9-gone': { verdict: 'approved', heard: true } },
     decisions: { d2: { resolution: 'ok' }, d9: { resolution: 'x' } },
     comments: [{ id: 'c1', text: 'why', anchor: { sectionId: 't1-bridge-service', quote: 'q', prefix: '', suffix: '' } }],
-    nextComment: 2, scroll: 120,
+    nextComment: 2, scroll: 120, heardIntro: ['overview', 'overview'],
   });
+  assert.deepEqual(s.heardIntro, ['overview']);
   assert.equal(s.sections['t1-bridge-service'].verdict, 'commented');
   assert.equal(s.sections['t9-gone'], undefined);
   assert.equal(s.decisions.d2.resolution, 'ok');
@@ -38,6 +39,10 @@ test('mergeDraft restores known ids and drops unknown ones', () => {
   assert.equal(s.comments.length, 1);
   assert.equal(s.nextComment, 2);
   assert.equal(s.scroll, 120);
+});
+
+test('initialState starts with no intro heard', () => {
+  assert.deepEqual(fresh().heardIntro, []);
 });
 
 test('mergeDraft ignores a draft from a different round', () => {
