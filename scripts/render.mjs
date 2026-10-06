@@ -55,6 +55,7 @@ function renderHeader(manifest, audioIndex, round) {
       <button id="next" title="Next section (Shift+↓)">⏭</button>
       <label class="stop-at-end"><input id="stop-at-end" type="checkbox"> Stop at section end</label>
     </div>
+    <select id="theme" title="Theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
   </div>
   <div class="row status">
     <label class="transport" title="Slower (Alt+←) · Faster (Alt+→)">Speed <input id="speed" type="range" min="0.8" max="2" step="0.1" value="1"><span id="speed-value">1.0×</span></label>

@@ -103,3 +103,9 @@ test('budgets come from word counts and audio durations', () => {
   assert.equal(listeningSeconds(m.sections[1], { 't1-bridge-service-p1': { duration: 10 }, 't1-bridge-service-p2': { duration: 5 } }), 15);
   assert.equal(mermaidId('t1-bridge-service'), 't1_bridge_service');
 });
+
+test('the header offers a theme switcher', () => {
+  const html = render(load());
+  assert.ok(html.includes('<select id="theme"'));
+  for (const v of ['system', 'light', 'dark']) assert.ok(html.includes(`<option value="${v}">`), v);
+});

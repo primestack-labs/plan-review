@@ -525,10 +525,31 @@ for (const md of $$('script[type="text/markdown"]')) {
   if (target && window.marked) target.innerHTML = marked.parse(md.textContent);
 }
 if (window.hljs) for (const code of $$('details.block pre code, .md pre code')) hljs.highlightElement(code);
-if (window.mermaid) {
-  mermaid.initialize({ startOnLoad: false, theme: matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'default', flowchart: { useMaxWidth: false } });
+// ---------- theme ----------
+const systemDark = matchMedia('(prefers-color-scheme: dark)');
+const readTheme = () => { try { return localStorage.getItem('theme') ?? 'system'; } catch { return 'system'; } };
+const isDark = () => document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && systemDark.matches);
+const diagram = $('pre.mermaid');
+const diagramSource = diagram?.textContent ?? '';
+let diagramDark = null;
+function drawDiagram() {
+  if (!window.mermaid || !diagram || diagramDark === isDark()) return;
+  diagramDark = isDark();
+  diagram.textContent = diagramSource;
+  delete diagram.dataset.processed;
+  mermaid.initialize({ startOnLoad: false, theme: diagramDark ? 'dark' : 'default', flowchart: { useMaxWidth: false } });
   mermaid.run().then(fitTaskMap);
 }
+function applyTheme(choice) {
+  if (choice === 'light' || choice === 'dark') document.documentElement.dataset.theme = choice;
+  else delete document.documentElement.dataset.theme;
+  try { localStorage.setItem('theme', choice); } catch {}
+  drawDiagram();
+}
+$('#theme').value = readTheme();
+$('#theme').addEventListener('change', (e) => applyTheme(e.target.value));
+systemDark.addEventListener('change', drawDiagram);
+drawDiagram();
 window.addEventListener('scroll', () => { state.scroll = window.scrollY; persist(); }, { passive: true });
 
 $('#clock').textContent = `0:00 / ${fmtClock(clockTotal)}`;
