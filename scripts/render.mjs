@@ -49,9 +49,9 @@ function renderHeader(manifest, audioIndex, round) {
     <h1>${h(manifest.plan.title)}</h1><span class="round">Round ${round}</span>
     <div class="transport">
       <button id="prev" title="Previous section (Shift+↑)">⏮</button>
-      <button id="back" title="Back 15 seconds (Shift+←)">⟲15</button>
+      <button id="back" title="Back 15 seconds (Shift+←)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><text x="12.5" y="15.5">15</text></svg></button>
       <button id="toggle" title="Play or pause (Space) · Start the section over (Shift+Space)">▶</button>
-      <button id="fwd" title="Forward 15 seconds (Shift+→)">⟳15</button>
+      <button id="fwd" title="Forward 15 seconds (Shift+→)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><text x="11.5" y="15.5">15</text></svg></button>
       <button id="next" title="Next section (Shift+↓)">⏭</button>
       <label class="stop-at-end"><input id="stop-at-end" type="checkbox"> Stop at section end</label>
     </div>
