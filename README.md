@@ -29,13 +29,30 @@ Review artifacts live in `~/.claude/plan-review/<repo>/<plan>/`.
 
 ## Voice
 
-`~/.claude/plan-review/config.json` selects the engine and voice every generation uses:
+`~/.claude/plan-review/config.json` selects the engine and voice every generation uses. Without the file, the defaults are Kokoro with `bf_emma`.
 
-    { "tts": "kokoro", "voice": "bf_emma" }
+Kokoro, local on any OS (default):
 
-`kokoro` (default) runs locally on any OS; voices include `bf_emma`, `bf_isabella`, `bm_george`, `bm_lewis` (British) and `af_heart`, `am_michael` (American). Paragraphs are synthesised sentence by sentence and joined with a 125 ms pause; sentence audio is cached under `~/.claude/plan-review/cache/kokoro/` so a revision costs only its new sentences.
+    {
+      "tts": "kokoro",
+      "voice": "bf_emma"
+    }
 
-`say` uses a macOS system voice, e.g. `{ "tts": "say", "voice": "Jamie (Premium)", "rate": "" }`. `say` falls back to the compact system voice without an error when a voice is missing, and macOS upgrades drop downloaded voices.
+macOS system voice:
+
+    {
+      "tts": "say",
+      "voice": "Jamie (Premium)",
+      "rate": "180"
+    }
+
+| Key | Values | Notes |
+|---|---|---|
+| `tts` | `kokoro` (default), `say` | engine |
+| `voice` | Kokoro: `bf_emma`, `bf_isabella`, `bm_george`, `bm_lewis` (British), `af_heart`, `am_michael` (American), 28 in total; `say`: any name from `say -v '?'`, empty for the system default | |
+| `rate` | words per minute | `say` only; omit for the voice's default |
+
+Kokoro synthesises each paragraph sentence by sentence, joins the sentences with a 125 ms pause, and caches sentence audio under `~/.claude/plan-review/cache/kokoro/`, so a revision costs only its new sentences; the model lives under `~/.claude/plan-review/models/`. `say` falls back to the compact system voice without an error when a voice is missing, and macOS upgrades drop downloaded voices.
 
 After editing the config or upgrading macOS run:
 
