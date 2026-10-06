@@ -10,6 +10,7 @@ writeFileSync(join(dir, 'index.html'), '<!doctype html><title>t</title>');
 writeFileSync(join(dir, 'manifest.json'), JSON.stringify({ plan: { hash: 'abc' } }));
 mkdirSync(join(dir, 'audio'));
 writeFileSync(join(dir, 'audio', 'x.m4a'), 'AUDIO');
+writeFileSync(join(dir, 'audio', 'y.wav'), 'WAV');
 
 const submitted = [];
 const server = createReviewServer({ dir, round: 1, planHash: 'abc', onSubmit: (p) => submitted.push(p) });
@@ -30,6 +31,7 @@ test('serves the page, audio and 404s outside the review dir', async () => {
   const audio = await fetch(`${base}/audio/x.m4a`);
   assert.equal(audio.headers.get('content-type'), 'audio/mp4');
   assert.equal(await audio.text(), 'AUDIO');
+  assert.equal((await fetch(`${base}/audio/y.wav`)).headers.get('content-type'), 'audio/wav');
   assert.equal((await fetch(`${base}/manifest.json`)).status, 404);
   assert.equal((await fetch(`${base}/audio/../manifest.json`)).status, 404);
   assert.equal((await fetch(`${base}/draft.json`)).status, 404);

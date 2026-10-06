@@ -8,7 +8,7 @@ import { parseArgs } from 'node:util';
 import { validate } from './lib/schema.mjs';
 import { SUBMISSION_SCHEMA } from './validate.mjs';
 
-const TYPES = { '.html': 'text/html; charset=utf-8', '.json': 'application/json', '.m4a': 'audio/mp4' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.json': 'application/json', '.m4a': 'audio/mp4', '.wav': 'audio/wav' };
 
 const send = (res, status, type, body) => {
   res.writeHead(status, { 'content-type': type, 'cache-control': 'no-store' });
@@ -72,9 +72,9 @@ export function createReviewServer({ dir, round, planHash, onSubmit }) {
 }
 
 if (realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const { values } = parseArgs({ options: { dir: { type: 'string' }, round: { type: 'string' }, 'no-open': { type: 'boolean', default: false } } });
+  const { values } = parseArgs({ options: { dir: { type: 'string' }, round: { type: 'string' }, port: { type: 'string', default: '0' }, 'no-open': { type: 'boolean', default: false } } });
   if (!values.dir || !values.round) {
-    console.error('usage: serve.mjs --dir <reviewDir> --round <n> [--no-open]');
+    console.error('usage: serve.mjs --dir <reviewDir> --round <n> [--port P] [--no-open]');
     process.exit(2);
   }
   const manifest = JSON.parse(await readFile(join(values.dir, 'manifest.json'), 'utf8'));
@@ -88,7 +88,7 @@ if (realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
       setTimeout(() => process.exit(0), 1000).unref();
     },
   });
-  server.listen(0, '127.0.0.1', () => {
+  server.listen(Number(values.port), '127.0.0.1', () => {
     const url = `http://127.0.0.1:${server.address().port}/`;
     console.log(`listening: ${url}`);
     if (!values['no-open']) spawn('open', [url], { stdio: 'ignore', detached: true }).unref();

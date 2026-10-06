@@ -1,11 +1,11 @@
-import { spawn } from 'node:child_process';
 import { realpathSync } from 'node:fs';
-import { access, mkdir, readdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
+import { access, mkdir, readdir, readFile, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { sha1 } from './lib/hash.mjs';
 import { readConfig } from './lib/config.mjs';
+import { resolveTts } from './tts/index.mjs';
 
 export const introSections = (manifest) => [
   { id: 'overview', narration: manifest.narration?.overview ?? [] },
@@ -16,11 +16,12 @@ export function narrationChunks(manifest) {
   return [...introSections(manifest), ...manifest.sections].flatMap((s) => s.narration.map((p) => ({ id: p.id, sectionId: s.id, target: p.target, text: p.text })));
 }
 
-export const audioFileName = (voice, rate, text) => `${sha1(`${voice}|${rate}|${text}`)}.m4a`;
+export const AUDIO_EXTENSIONS = ['m4a', 'wav'];
+export const audioFileName = (providerName, voice, rate, text, extension) => `${sha1(`${providerName}|${voice}|${rate}|${text}`)}.${extension}`;
 
 const exists = (path) => access(path).then(() => true, () => false);
 
-export async function generateAudio(manifest, outDir, { voice = '', rate = '', concurrency = 8, say = runSay, probe = runAfinfo } = {}) {
+export async function generateAudio(manifest, outDir, { provider, voice = provider.defaultVoice ?? '', rate = '', concurrency = provider.concurrency ?? 1 }) {
   await mkdir(outDir, { recursive: true });
   const chunks = narrationChunks(manifest);
   const index = {};
@@ -29,7 +30,7 @@ export async function generateAudio(manifest, outDir, { voice = '', rate = '', c
 
   const ensure = (path, text) => {
     if (!inFlight.has(path)) {
-      inFlight.set(path, exists(path).then((present) => (present ? undefined : say(path, text, { voice, rate }))));
+      inFlight.set(path, exists(path).then((present) => (present ? undefined : provider.synthesize(path, text, { voice, rate }))));
     }
     return inFlight.get(path);
   };
@@ -37,10 +38,10 @@ export async function generateAudio(manifest, outDir, { voice = '', rate = '', c
   const worker = async () => {
     while (cursor < chunks.length) {
       const chunk = chunks[cursor++];
-      const file = audioFileName(voice, rate, chunk.text);
+      const file = audioFileName(provider.name, voice, rate, chunk.text, provider.extension);
       const path = join(outDir, file);
       await ensure(path, chunk.text);
-      index[chunk.id] = { file, sectionId: chunk.sectionId, duration: await probe(path) };
+      index[chunk.id] = { file, sectionId: chunk.sectionId, duration: await provider.duration(path) };
     }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, chunks.length) }, worker));
@@ -54,7 +55,7 @@ export async function generateAudio(manifest, outDir, { voice = '', rate = '', c
 export async function pruneStale(outDir, keep) {
   let removed = 0;
   for (const name of await readdir(outDir)) {
-    if (name.endsWith('.m4a') && !keep.has(name)) {
+    if (AUDIO_EXTENSIONS.some((ext) => name.endsWith(`.${ext}`)) && !keep.has(name)) {
       await unlink(join(outDir, name));
       removed++;
     }
@@ -62,49 +63,19 @@ export async function pruneStale(outDir, keep) {
   return removed;
 }
 
-export function runSay(path, text, { voice, rate }) {
-  const partial = path.replace(/\.m4a$/, '.partial.m4a');
-  const args = [...(voice ? ['-v', voice] : []), ...(rate ? ['-r', String(rate)] : []), '-o', partial, '--data-format=aac', '-f', '-'];
-  return new Promise((resolve, reject) => {
-    const child = spawn('say', args, { stdio: ['pipe', 'ignore', 'pipe'] });
-    let stderr = '';
-    child.stderr.on('data', (d) => { stderr += d; });
-    child.on('error', reject);
-    child.stdin.on('error', reject);
-    child.on('close', (code) => (code === 0 ? resolve(rename(partial, path)) : reject(new Error(`say exited ${code} for ${path}: ${stderr.trim()}`))));
-    child.stdin.end(text);
-  });
-}
-
-export function runAfinfo(path) {
-  return new Promise((resolve, reject) => {
-    const child = spawn('afinfo', [path], { stdio: ['ignore', 'pipe', 'ignore'] });
-    let stdout = '';
-    child.stdout.on('data', (d) => { stdout += d; });
-    child.on('error', reject);
-    child.on('close', (code) => {
-      const match = stdout.match(/estimated duration: ([\d.]+) sec/);
-      if (code === 0 && match) resolve(Number(match[1]));
-      else reject(new Error(`afinfo gave no duration for ${path}`));
-    });
-  });
-}
-
 if (realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
-    options: { out: { type: 'string' }, voice: { type: 'string' }, rate: { type: 'string' } },
+    options: { out: { type: 'string' }, tts: { type: 'string' }, voice: { type: 'string' }, rate: { type: 'string' } },
   });
   const [manifestPath] = positionals;
   if (!manifestPath || !values.out) {
-    console.error('usage: audio.mjs <manifest.json> --out <dir> [--voice V] [--rate R]  (defaults from ~/.claude/plan-review/config.json)');
+    console.error('usage: audio.mjs <manifest.json> --out <dir> [--tts kokoro|say] [--voice V] [--rate R]  (defaults from ~/.claude/plan-review/config.json)');
     process.exit(2);
   }
-  const config = readConfig();
-  const voice = values.voice ?? config.voice ?? '';
-  const rate = values.rate ?? config.rate ?? '';
+  const { provider, voice, rate } = resolveTts(readConfig(), values);
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
-  const index = await generateAudio(manifest, values.out, { voice, rate });
+  const index = await generateAudio(manifest, values.out, { provider, voice, rate });
   const total = Object.values(index).reduce((sum, e) => sum + e.duration, 0);
-  console.log(`${Object.keys(index).length} paragraph(s), ${Math.round(total / 60)} min of audio in ${values.out}, voice ${voice || 'system default'}`);
+  console.log(`${Object.keys(index).length} paragraph(s), ${Math.round(total / 60)} min of audio in ${values.out}, ${provider.name} voice ${voice || 'system default'}`);
 }
