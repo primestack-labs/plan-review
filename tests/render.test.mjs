@@ -106,6 +106,6 @@ test('budgets come from word counts and audio durations', () => {
 
 test('the header offers a theme switcher', () => {
   const html = render(load());
-  assert.ok(html.includes('<select id="theme"'));
-  for (const v of ['system', 'light', 'dark']) assert.ok(html.includes(`<option value="${v}">`), v);
+  assert.ok(html.includes('<div class="theme" id="theme"'));
+  for (const v of ['system', 'light', 'dark']) assert.ok(html.includes(`<button data-theme="${v}"`), v);
 });

@@ -527,7 +527,8 @@ for (const md of $$('script[type="text/markdown"]')) {
 if (window.hljs) for (const code of $$('details.block pre code, .md pre code')) hljs.highlightElement(code);
 // ---------- theme ----------
 const systemDark = matchMedia('(prefers-color-scheme: dark)');
-const readTheme = () => { try { return localStorage.getItem('theme') ?? 'system'; } catch { return 'system'; } };
+const THEME_COOKIE = 'plan-review-theme';
+const readTheme = () => document.cookie.match(new RegExp(`(?:^|; )${THEME_COOKIE}=(system|light|dark)`))?.[1] ?? 'system';
 const isDark = () => document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && systemDark.matches);
 const diagram = $('pre.mermaid');
 const diagramSource = diagram?.textContent ?? '';
@@ -543,13 +544,13 @@ function drawDiagram() {
 function applyTheme(choice) {
   if (choice === 'light' || choice === 'dark') document.documentElement.dataset.theme = choice;
   else delete document.documentElement.dataset.theme;
-  try { localStorage.setItem('theme', choice); } catch {}
+  document.cookie = `${THEME_COOKIE}=${choice}; path=/; max-age=31536000; SameSite=Lax`;
+  for (const b of $$('#theme button')) b.classList.toggle('active', b.dataset.theme === choice);
   drawDiagram();
 }
-$('#theme').value = readTheme();
-$('#theme').addEventListener('change', (e) => applyTheme(e.target.value));
+for (const b of $$('#theme button')) b.addEventListener('click', () => applyTheme(b.dataset.theme));
+applyTheme(readTheme());
 systemDark.addEventListener('change', drawDiagram);
-drawDiagram();
 window.addEventListener('scroll', () => { state.scroll = window.scrollY; persist(); }, { passive: true });
 
 $('#clock').textContent = `0:00 / ${fmtClock(clockTotal)}`;
