@@ -42,3 +42,10 @@ test('command and skills address the plugin through CLAUDE_PLUGIN_ROOT and pass 
   for (const key of ['tts', 'kokoro_voice', 'say_voice']) assert.ok(command.includes(`\${user_config.${key}}`), key);
   assert.ok(texts[2].includes('${user_config.tts}'), 'respond passes the engine');
 });
+
+test('the command spells the audio flags out instead of a shell variable', () => {
+  const command = read('commands/plan-review.md');
+  assert.ok(!command.includes('VOICE_FLAGS'));
+  assert.ok(command.includes('--tts "${user_config.tts}" --kokoro-voice "${user_config.kokoro_voice}" --say-voice "${user_config.say_voice}"'));
+  assert.ok(!command.includes('with `claude plugin configure plan-review`'), 'configure needs --values-stdin');
+});

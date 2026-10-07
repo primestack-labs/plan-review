@@ -45,3 +45,13 @@ test('a failing npm leaves no stamp and throws', () => {
   assert.equal(existsSync(join(t.home, 'deps', '.installed')), false);
   assert.equal(existsSync(loaderPath(t.home)), false);
 });
+
+test('npm runs through a shell on Windows only, so npm.cmd resolves', () => {
+  const t = setup('exit 0');
+  const seen = [];
+  const spawn = (cmd, args, opts) => { seen.push(opts.shell); return { status: 0 }; };
+  ensureDeps({ home: t.home, bundle: t.bundle, npm: t.npm, stdio: 'ignore', spawn, platform: 'win32' });
+  writeFileSync(join(t.bundle, 'package-lock.json'), '{"lockfileVersion":3,"packages":{"y":1}}');
+  ensureDeps({ home: t.home, bundle: t.bundle, npm: t.npm, stdio: 'ignore', spawn, platform: 'darwin' });
+  assert.deepEqual(seen, [true, false]);
+});

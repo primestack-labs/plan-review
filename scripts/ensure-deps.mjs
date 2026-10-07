@@ -10,7 +10,7 @@ export const depsDir = (home = PLAN_REVIEW_HOME) => join(home, 'deps');
 export const loaderPath = (home = PLAN_REVIEW_HOME) => join(depsDir(home), 'load-kokoro.mjs');
 const LOADER = "export * from 'kokoro-js';\nexport { env as transformersEnv } from '@huggingface/transformers';\n";
 
-export function ensureDeps({ home = PLAN_REVIEW_HOME, bundle = BUNDLE_DIR, npm = 'npm', stdio = 'inherit' } = {}) {
+export function ensureDeps({ home = PLAN_REVIEW_HOME, bundle = BUNDLE_DIR, npm = 'npm', stdio = 'inherit', spawn = spawnSync, platform = process.platform } = {}) {
   const dir = depsDir(home);
   const stamp = join(dir, '.installed');
   const lock = readFileSync(join(bundle, 'package-lock.json'), 'utf8');
@@ -19,7 +19,7 @@ export function ensureDeps({ home = PLAN_REVIEW_HOME, bundle = BUNDLE_DIR, npm =
   mkdirSync(dir, { recursive: true });
   copyFileSync(join(bundle, 'package.json'), join(dir, 'package.json'));
   writeFileSync(join(dir, 'package-lock.json'), lock);
-  const result = spawnSync(npm, ['ci', '--omit=dev', '--no-audit', '--no-fund'], { cwd: dir, stdio });
+  const result = spawn(npm, ['ci', '--omit=dev', '--no-audit', '--no-fund'], { cwd: dir, stdio, shell: platform === 'win32' });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`npm ci exited ${result.status} in ${dir}`);
   writeFileSync(loaderPath(home), LOADER);
@@ -28,7 +28,7 @@ export function ensureDeps({ home = PLAN_REVIEW_HOME, bundle = BUNDLE_DIR, npm =
 }
 
 if (realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  console.error('plan-review: checking Kokoro packages (about 500 MB on first install)');
+  console.error('plan-review: checking Kokoro packages (about 400 MB on first install)');
   const { installed, dir } = ensureDeps();
   console.log(installed ? `deps: installed in ${dir}` : 'deps: current');
 }

@@ -11,9 +11,9 @@ Plans in the [superpowers](https://github.com/obra/superpowers) writing-plans fo
     /plugin marketplace add primestack-labs/plan-review
     /plugin install plan-review@primestack
 
-Claude Code asks for the narration engine and voice when it enables the plugin. Change them later in `/config` or with:
+Claude Code asks for the narration engine and voice when it enables the plugin. Change them later in `/config`, or from a shell (options left out keep their values):
 
-    claude plugin configure plan-review
+    echo '{"tts":"say","say_voice":"Jamie (Premium)"}' | claude plugin configure plan-review --values-stdin
 
 Requires Node 22 and npm on `PATH`.
 
@@ -23,18 +23,18 @@ Requires Node 22 and npm on `PATH`.
 | Kokoro voice | `bf_emma`, `bf_isabella`, `bm_george`, `bm_lewis`, `af_heart`, `am_michael`, 28 in total | `bf_emma` |
 | macOS say voice | any name from `say -v '?'` | `Samantha` |
 
-With Kokoro, the first `/plan-review` on a machine installs about 500 MB of packages into `~/.claude/plan-review/deps/` and downloads a 90 MB model into `~/.claude/plan-review/models/`. Generation runs at two to three times real time on a laptop CPU and caches every sentence, so a revision costs only its new sentences. `say` downloads nothing; premium voices are installed in System Settings > Accessibility > Spoken Content.
+With Kokoro, the first `/plan-review` on a machine installs about 400 MB of packages into `~/.claude/plan-review/deps/` and downloads a 90 MB model into `~/.claude/plan-review/models/`. Generation runs at two to three times real time on a laptop CPU and caches every sentence, so a revision costs only its new sentences. `say` downloads nothing; premium voices are installed in System Settings > Accessibility > Spoken Content.
 
 Check a voice after changing it or after a macOS upgrade (`say` falls back to the compact system voice without an error when a voice is missing):
 
-    node ~/.claude/plugins/cache/primestack/plan-review/1.0.0/scripts/check-voice.mjs --tts say --say-voice "Jamie (Premium)"
+    node ~/.claude/plugins/cache/primestack/plan-review/<version>/scripts/check-voice.mjs --tts say --say-voice "Jamie (Premium)"
 
 ## Per plan
 
     /plan-review <plan.md> --voice bm_george
-    /plan-review <plan.md> --voice "Jamie (Premium)" --rate 180
+    /plan-review <plan.md> --voice "Jamie (Premium)" --rate 180    # engine say
 
-`--voice` overrides the configured voice for that plan; `--rate` applies to `say`.
+`--voice` overrides the configured voice for that plan and must belong to the configured engine; `--rate` applies to `say`.
 
 ## Layout
 

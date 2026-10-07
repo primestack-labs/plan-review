@@ -15,7 +15,7 @@
     "tts": {
       "type": "string",
       "title": "Narration engine",
-      "description": "kokoro: runs on the CPU on macOS, Windows and Linux; downloads about 500 MB of packages and 90 MB of model on first use. say: macOS system voices, nothing to download.",
+      "description": "kokoro: runs on the CPU on macOS, Windows and Linux; downloads about 400 MB of packages and 90 MB of model on first use. say: macOS system voices, nothing to download.",
       "options": ["kokoro", "say"],
       "default": "kokoro"
     },
