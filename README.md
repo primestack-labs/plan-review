@@ -2,9 +2,9 @@
 
 Claude Code plugin: review an implementation plan in the browser instead of reading 2,000 lines of executor detail.
 
-`/plan-review docs/superpowers/plans/<plan>.md` builds a reviewer's projection (goal, interfaces, decisions, UI mockups, risks; code and steps collapsed), narrates it paragraph by paragraph, opens the page, and waits. Approve or comment on each section, resolve the decisions, press Submit; Claude answers every comment, revises the plan, and opens the next round with changed sections badged.
+`/plan-review path/to/plan.md` builds a reviewer's projection (goal, interfaces, decisions, UI mockups, risks; code and steps collapsed), narrates it paragraph by paragraph, opens the page, and waits. Approve or comment on each section, resolve the decisions, press Submit; Claude answers every comment, revises the plan, and opens the next round with changed sections badged.
 
-Plans in the [superpowers](https://github.com/obra/superpowers) writing-plans format are supported. When a plan is saved to a `plans/` directory, the plugin reminds Claude to offer a review before execution starts.
+Any markdown plan works: the projection is built from the plan's headings, file lists, code blocks and prose. Plans in the [superpowers](https://github.com/obra/superpowers) writing-plans format and Claude Code plan-mode files are recognised shapes and map one to one. When a plan is saved to a `plans/` directory, the plugin reminds Claude to offer a review before execution starts. A sample plan ships in `samples/`.
 
 ## Install
 
@@ -42,6 +42,7 @@ Check a voice after changing it or after a macOS upgrade (`say` falls back to th
     skills/plan-review-manifest    plan → manifest rules
     skills/plan-review-respond     submission → replies, plan edits, next round
     hooks/hooks.json               hand-off after a plan is saved
+    samples/                       a plan in plan-mode shape to try the loop on
     schema/                        manifest and submission schemas
     scripts/                       validate, audio, render, serve, diff, ensure-deps
     scripts/tts/kokoro/            pinned Kokoro dependency bundle

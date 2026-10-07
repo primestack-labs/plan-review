@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const json = (p) => JSON.parse(read(p));
@@ -8,7 +8,7 @@ const json = (p) => JSON.parse(read(p));
 test('plugin.json declares the setup options and release metadata', () => {
   const m = json('.claude-plugin/plugin.json');
   assert.equal(m.name, 'plan-review');
-  assert.equal(m.version, '1.0.0');
+  assert.equal(m.version, '1.1.0');
   assert.equal(m.license, 'MIT');
   assert.match(m.homepage, /github\.com\/primestack-labs\/plan-review/);
   assert.deepEqual(Object.keys(m.userConfig), ['tts', 'kokoro_voice', 'say_voice']);
@@ -48,4 +48,15 @@ test('the command spells the audio flags out instead of a shell variable', () =>
   assert.ok(!command.includes('VOICE_FLAGS'));
   assert.ok(command.includes('--tts "${user_config.tts}" --kokoro-voice "${user_config.kokoro_voice}" --say-voice "${user_config.say_voice}"'));
   assert.ok(!command.includes('with `claude plugin configure plan-review`'), 'configure needs --values-stdin');
+});
+
+test('the skills do not require the superpowers plan format', () => {
+  const manifest = read('skills/plan-review-manifest/SKILL.md');
+  assert.ok(!manifest.includes('for a superpowers implementation plan'));
+  assert.ok(manifest.includes('## Recognised shapes'));
+  assert.ok(manifest.includes('Claude Code plan mode'));
+  const respond = read('skills/plan-review-respond/SKILL.md');
+  assert.ok(!respond.includes('superpowers:receiving-code-review'));
+  assert.ok(!respond.includes('writing-plans execution choice'));
+  assert.ok(existsSync(new URL('../samples/2026-10-07-api-rate-limiting.md', import.meta.url)));
 });

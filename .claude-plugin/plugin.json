@@ -2,7 +2,7 @@
   "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "plan-review",
   "displayName": "Plan Review",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Review an implementation plan in the browser: reviewer's projection, per-section verdicts, anchored comments, narrated chapters, revision rounds that come back to Claude Code.",
   "author": { "name": "Marios Vertopoulos", "url": "https://primestack.tech" },
   "homepage": "https://github.com/primestack-labs/plan-review",
