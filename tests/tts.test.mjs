@@ -6,12 +6,16 @@ import { join } from 'node:path';
 import { resolveTts, PROVIDERS } from '../scripts/tts/index.mjs';
 import { wavBuffer, wavDuration, joinSamples } from '../scripts/tts/kokoro.mjs';
 
-test('resolveTts defaults to kokoro with bf_emma and honours config and overrides', () => {
+test('resolveTts picks the provider voice, lets --voice win, and treats empty flags as unset', () => {
   assert.equal(resolveTts().provider, PROVIDERS.kokoro);
   assert.equal(resolveTts().voice, 'bf_emma');
-  assert.equal(resolveTts({ tts: 'say', voice: 'Jamie (Premium)' }).voice, 'Jamie (Premium)');
-  assert.equal(resolveTts({ tts: 'say' }).voice, '');
-  assert.equal(resolveTts({ tts: 'say' }, { tts: 'kokoro', voice: 'af_heart' }).voice, 'af_heart');
+  assert.equal(resolveTts({ tts: '', voice: '' }).voice, 'bf_emma');
+  assert.equal(resolveTts({ tts: 'kokoro', kokoroVoice: 'af_heart', sayVoice: 'Samantha' }).voice, 'af_heart');
+  assert.equal(resolveTts({ tts: 'say', kokoroVoice: 'af_heart', sayVoice: 'Samantha' }).voice, 'Samantha');
+  assert.equal(resolveTts({ tts: 'say', sayVoice: '' }).voice, '');
+  assert.equal(resolveTts({ tts: 'say', sayVoice: 'Samantha', voice: 'Jamie (Premium)' }).voice, 'Jamie (Premium)');
+  assert.equal(resolveTts({ rate: '' }).rate, '');
+  assert.equal(resolveTts({ tts: 'say', rate: '180' }).rate, '180');
   assert.throws(() => resolveTts({ tts: 'nope' }), /unknown tts provider/);
 });
 

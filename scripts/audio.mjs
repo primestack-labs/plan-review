@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { sha1 } from './lib/hash.mjs';
-import { readConfig } from './lib/config.mjs';
 import { resolveTts } from './tts/index.mjs';
 
 export const introSections = (manifest) => [
@@ -66,14 +65,14 @@ export async function pruneStale(outDir, keep) {
 if (realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
-    options: { out: { type: 'string' }, tts: { type: 'string' }, voice: { type: 'string' }, rate: { type: 'string' } },
+    options: { out: { type: 'string' }, tts: { type: 'string' }, voice: { type: 'string' }, 'kokoro-voice': { type: 'string' }, 'say-voice': { type: 'string' }, rate: { type: 'string' } },
   });
   const [manifestPath] = positionals;
   if (!manifestPath || !values.out) {
-    console.error('usage: audio.mjs <manifest.json> --out <dir> [--tts kokoro|say] [--voice V] [--rate R]  (defaults from ~/.claude/plan-review/config.json)');
+    console.error('usage: audio.mjs <manifest.json> --out <dir> [--tts kokoro|say] [--kokoro-voice V] [--say-voice V] [--voice V] [--rate R]');
     process.exit(2);
   }
-  const { provider, voice, rate } = resolveTts(readConfig(), values);
+  const { provider, voice, rate } = resolveTts({ tts: values.tts, voice: values.voice, kokoroVoice: values['kokoro-voice'], sayVoice: values['say-voice'], rate: values.rate });
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
   const index = await generateAudio(manifest, values.out, { provider, voice, rate });
   const total = Object.values(index).reduce((sum, e) => sum + e.duration, 0);

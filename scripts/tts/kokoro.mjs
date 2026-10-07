@@ -1,11 +1,11 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { sha1 } from '../lib/hash.mjs';
+import { PLAN_REVIEW_HOME } from '../lib/home.mjs';
 
 export const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
-export const MODELS_DIR = join(homedir(), '.claude', 'plan-review', 'models');
-export const CHUNK_CACHE = join(homedir(), '.claude', 'plan-review', 'cache', 'kokoro');
+export const MODELS_DIR = join(PLAN_REVIEW_HOME, 'models');
+export const CHUNK_CACHE = join(PLAN_REVIEW_HOME, 'cache', 'kokoro');
 export const GAP_MS = 125;
 
 export function wavBuffer(samples, rate) {
