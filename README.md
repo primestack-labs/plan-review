@@ -6,6 +6,11 @@ Claude Code plugin: review an implementation plan in the browser instead of read
 
 Any markdown plan works: the projection is built from the plan's headings, file lists, code blocks and prose. Plans in the [superpowers](https://github.com/obra/superpowers) writing-plans format and Claude Code plan-mode files are recognised shapes and map one to one. When a plan is saved to a `plans/` directory, the plugin reminds Claude to offer a review before execution starts. A sample plan ships in `samples/`.
 
+## Docs
+
+- [The review page](docs/page.md): what is on the page and how to listen, comment, decide and submit.
+- [How a review works](docs/flow.md): rounds, the manifest, files on disk, narration engines, the hand-off hook, scripts.
+
 ## Install
 
     /plugin marketplace add primestack-labs/plan-review
@@ -39,6 +44,7 @@ Check a voice after changing it or after a macOS upgrade (`say` falls back to th
 ## Layout
 
     commands/plan-review.md        the round loop
+    docs/                          page and flow documentation
     skills/plan-review-manifest    plan → manifest rules
     skills/plan-review-respond     submission → replies, plan edits, next round
     hooks/hooks.json               hand-off after a plan is saved
