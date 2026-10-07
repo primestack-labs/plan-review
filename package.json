@@ -1,6 +1,6 @@
 {
   "name": "plan-review",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -8,9 +8,8 @@
   },
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "check-voice": "node scripts/check-voice.mjs"
-  },
-  "dependencies": {
-    "kokoro-js": "^1.2.1"
+    "validate": "claude plugin validate --strict .",
+    "check-voice": "node scripts/check-voice.mjs",
+    "ensure-deps": "node scripts/ensure-deps.mjs"
   }
 }

@@ -1,7 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { sha1 } from '../lib/hash.mjs';
 import { PLAN_REVIEW_HOME } from '../lib/home.mjs';
+import { ensureDeps, loaderPath } from '../ensure-deps.mjs';
 
 export const MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 export const MODELS_DIR = join(PLAN_REVIEW_HOME, 'models');
@@ -45,8 +47,9 @@ let modelPromise = null;
 async function model() {
   if (!modelPromise) {
     modelPromise = (async () => {
-      const { KokoroTTS, TextSplitterStream, env } = await import('kokoro-js');
-      env.cacheDir = MODELS_DIR;
+      ensureDeps();
+      const { KokoroTTS, TextSplitterStream, transformersEnv } = await import(pathToFileURL(loaderPath()).href);
+      transformersEnv.cacheDir = MODELS_DIR;
       mkdirSync(MODELS_DIR, { recursive: true });
       const tts = await KokoroTTS.from_pretrained(MODEL_ID, { dtype: 'q8', device: 'cpu' });
       return { tts, TextSplitterStream };
