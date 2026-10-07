@@ -123,7 +123,13 @@ button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--a
 .md pre { background: var(--card); }
 .mockup { margin: 8px 0; }
 .mockup figcaption { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-.mockup .frame { max-width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: #fff; color: #111; }
+.mockup .frame-fit { overflow: hidden; }
+.mockup .frame { box-sizing: border-box; transform-origin: top left; cursor: zoom-in; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: #fff; color: #111; }
+#lightbox { border: 0; padding: 0; background: transparent; max-width: none; max-height: none; overflow: visible; }
+#lightbox::backdrop { background: rgba(0,0,0,.72); }
+#lightbox .frame-fit { overflow: hidden; }
+#lightbox .frame { box-sizing: border-box; transform-origin: top left; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: #fff; color: #111; }
+#lightbox-close { position: fixed; top: 12px; right: 16px; z-index: 1; font-size: 22px; line-height: 1; width: 36px; height: 36px; border-radius: 18px; border: 0; background: var(--card); color: var(--fg); cursor: pointer; }
 .mockup .notes { font-size: 13px; color: var(--muted); }
 .threads, .comments { margin-top: 12px; display: grid; gap: 6px; }
 .thread, .pin { border: 1px dashed var(--line); border-radius: 6px; padding: 6px 10px; font-size: 14px; }

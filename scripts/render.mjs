@@ -119,7 +119,7 @@ function renderSection(s, ctx) {
   const decisions = s.decisionIds.length
     ? `<ul>${s.decisionIds.map((id) => `<li><a href="#decision-${h(id)}">${h(decisionsById.get(id)?.text ?? id)}</a></li>`).join('')}</ul>`
     : '<p class="none">None.</p>';
-  const ui = s.ui.map((u) => `<figure class="mockup" data-ui="${h(u.id)}"><figcaption>${h(u.title)} <button class="comment-ui" data-ui="${h(u.id)}">Comment on this mockup</button></figcaption><div class="frame" style="width:${Number(u.width) || 360}px">${u.html}</div>${u.notes ? `<p class="notes">${h(u.notes)}</p>` : ''}</figure>`).join('');
+  const ui = s.ui.map((u) => `<figure class="mockup" data-ui="${h(u.id)}"><figcaption>${h(u.title)} <button class="comment-ui" data-ui="${h(u.id)}">Comment on this mockup</button></figcaption><div class="frame-fit"><div class="frame" style="width:${Number(u.width) || 360}px" title="Open full size">${u.html}</div></div>${u.notes ? `<p class="notes">${h(u.notes)}</p>` : ''}</figure>`).join('');
   const blocks = s.blocks.map((b) => `<details class="block" id="${h(b.id)}" data-kind="${h(b.kind)}"><summary><span class="role">${h(b.role)}</span> ${h(b.summary)}</summary>${b.behaviors?.length ? `<ul class="behaviors">${b.behaviors.map((x) => `<li>${h(x)}</li>`).join('')}</ul>` : ''}<pre><code class="lang-${h(b.lang)}">${h(b.source)}</code></pre></details>`).join('');
   const isChanged = changed.has(s.id);
   const verdict = prefill[s.id] ?? '';

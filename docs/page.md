@@ -38,7 +38,7 @@ One card per section of the plan: the preamble, each task, and the wrap-up when 
 | Changes | A table of files: role, path, action (`create`, `modify`, `test`). |
 | Interfaces | What the section consumes and what it produces. |
 | Decisions | Links to the decisions this section owns. |
-| UI | One mockup per screen or component, drawn at the plan's viewport width, with notes. Each mockup has a *Comment on this mockup* button. |
+| UI | One mockup per screen or component, drawn at the plan's viewport width and scaled down to fit the card when wider. Click a mockup to open it full size in a lightbox (Esc or the × closes it). Each mockup has a *Comment on this mockup* button. |
 | Risks | Gotchas, races, manual steps. |
 | Code | One collapsed block per fenced block in the plan. The summary line carries the block's role and a prose explanation of what it does; tests also list their behaviours (one line per test title). Expanding shows the syntax-highlighted source. |
 | Executor detail | The plan's step list verbatim, rendered as markdown, collapsed. The reviewer never has to read it. |

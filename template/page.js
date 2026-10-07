@@ -479,6 +479,44 @@ $('#submit').addEventListener('click', async () => {
   }
 });
 
+// ---------- mockups: fit to the card, full size in a lightbox ----------
+function fitFrame(fit, frame, maxWidth, maxHeight = Infinity) {
+  frame.style.transform = '';
+  const w = frame.offsetWidth;
+  const h = frame.offsetHeight;
+  if (!w || !h) return;
+  const k = Math.min(1, maxWidth / w, maxHeight / h);
+  frame.style.transform = k < 1 ? `scale(${k})` : '';
+  fit.style.width = `${Math.round(w * k)}px`;
+  fit.style.height = `${Math.round(h * k)}px`;
+}
+const mockupFits = $$('figure.mockup .frame-fit');
+const fitMockups = () => { for (const fit of mockupFits) fitFrame(fit, $('.frame', fit), fit.parentElement.clientWidth); };
+if (window.ResizeObserver) {
+  const observer = new ResizeObserver(fitMockups);
+  for (const fit of mockupFits) observer.observe(fit.parentElement);
+} else window.addEventListener('resize', fitMockups);
+const lightbox = $('#lightbox');
+function openLightbox(frame) {
+  const fit = $('.frame-fit', lightbox);
+  fit.innerHTML = '';
+  const clone = frame.cloneNode(true);
+  clone.style.transform = '';
+  clone.removeAttribute('title');
+  fit.append(clone);
+  lightbox.showModal();
+  fitFrame(fit, clone, window.innerWidth - 48, window.innerHeight - 48);
+}
+for (const fit of mockupFits) {
+  $('.frame', fit).addEventListener('click', () => {
+    if (!(window.getSelection()?.isCollapsed ?? true)) return;
+    openLightbox($('.frame', fit));
+  });
+}
+$('#lightbox-close').addEventListener('click', () => lightbox.close());
+lightbox.addEventListener('click', (e) => { if (e.target === lightbox) lightbox.close(); });
+window.addEventListener('resize', () => { if (lightbox.open) fitFrame($('.frame-fit', lightbox), $('.frame', lightbox), window.innerWidth - 48, window.innerHeight - 48); });
+
 // ---------- task map: pan, zoom, fullscreen ----------
 let fitTaskMap = () => {};
 const taskmap = $('#taskmap');
