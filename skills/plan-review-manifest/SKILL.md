@@ -5,7 +5,7 @@ description: Fill or refresh the plan-review manifest (the reviewer's projection
 
 # Plan review manifest
 
-Input: a plan markdown path and the manifest output path. Output: a manifest that passes `node ~/.claude/skills/plan-review/scripts/validate.mjs <manifest> --plan <plan>`. The schema is `~/.claude/skills/plan-review/schema/manifest.schema.json`; read it before writing.
+Input: a plan markdown path and the manifest output path. Output: a manifest that passes `node ${CLAUDE_PLUGIN_ROOT}/scripts/validate.mjs <manifest> --plan <plan>`. The schema is `${CLAUDE_PLUGIN_ROOT}/schema/manifest.schema.json`; read it before writing.
 
 Read the whole plan first. The manifest is a projection for the **approver**, not the executor: what is built, why, what it exposes, what was decided or assumed, what the UI looks like, what can go wrong. Executor mechanics (steps, commands, commit lines) go verbatim into `executorDetail` and nowhere else.
 
@@ -37,4 +37,4 @@ When the manifest exists and the plan changed: keep every id; rewrite only secti
 
 ## Finish
 
-Run `node ~/.claude/skills/plan-review/scripts/validate.mjs <manifest> --plan <plan>`. Fix every reported path until it prints `valid`.
+Run `node ${CLAUDE_PLUGIN_ROOT}/scripts/validate.mjs <manifest> --plan <plan>`. Fix every reported path until it prints `valid`.

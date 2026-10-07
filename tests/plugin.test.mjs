@@ -30,3 +30,15 @@ test('hooks.json registers the plan-saved hook on Write', () => {
   assert.equal(h[0].matcher, 'Write');
   assert.deepEqual(h[0].hooks[0].args, ['${CLAUDE_PLUGIN_ROOT}/scripts/hooks/plan-saved.mjs']);
 });
+
+test('command and skills address the plugin through CLAUDE_PLUGIN_ROOT and pass the setup options', () => {
+  const texts = ['commands/plan-review.md', 'skills/plan-review-manifest/SKILL.md', 'skills/plan-review-respond/SKILL.md'].map(read);
+  for (const t of texts) {
+    assert.ok(!t.includes('.claude/skills'), 'no skills-dir path');
+    assert.ok(t.includes('${CLAUDE_PLUGIN_ROOT}'), 'plugin root used');
+  }
+  const command = texts[0];
+  assert.ok(command.includes('ensure-deps.mjs'));
+  for (const key of ['tts', 'kokoro_voice', 'say_voice']) assert.ok(command.includes(`\${user_config.${key}}`), key);
+  assert.ok(texts[2].includes('${user_config.tts}'), 'respond passes the engine');
+});
