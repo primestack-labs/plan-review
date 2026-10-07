@@ -2,60 +2,62 @@
 
 Claude Code plugin: review an implementation plan in the browser instead of reading 2,000 lines of executor detail.
 
-`/plan-review docs/superpowers/plans/<plan>.md` builds a reviewer's projection (goal, interfaces, decisions, UI mockups, risks; code and steps collapsed), generates per-paragraph audio with macOS `say`, opens the page, and waits. Approve or comment on each section, resolve the decisions, press Submit; Claude answers every comment, revises the plan, and opens the next round with changed sections badged.
+`/plan-review docs/superpowers/plans/<plan>.md` builds a reviewer's projection (goal, interfaces, decisions, UI mockups, risks; code and steps collapsed), narrates it paragraph by paragraph, opens the page, and waits. Approve or comment on each section, resolve the decisions, press Submit; Claude answers every comment, revises the plan, and opens the next round with changed sections badged.
+
+Plans in the [superpowers](https://github.com/obra/superpowers) writing-plans format are supported. When a plan is saved to a `plans/` directory, the plugin reminds Claude to offer a review before execution starts.
 
 ## Install
 
-    git clone <this repo> ~/Projects/plan-review
-    ln -s ~/Projects/plan-review ~/.claude/skills/plan-review
+    /plugin marketplace add primestack-labs/plan-review
+    /plugin install plan-review@primestack
 
-    cd ~/Projects/plan-review && npm install
+Claude Code asks for the narration engine and voice when it enables the plugin. Change them later in `/config` or with:
 
-Loads next session as `plan-review@skills-dir`. Requires Node 22. Narration uses Kokoro (bundled through `kokoro-js`, runs on the CPU, about 90MB of model downloaded on first use into `~/.claude/plan-review/models/`) on macOS, Windows and Linux; macOS users can switch to the system `say` voices instead.
+    claude plugin configure plan-review
 
-To go straight from a saved plan to review, add one line to `~/.claude/CLAUDE.md`: after writing-plans saves a plan, invoke `plan-review-manifest` and offer `/plan-review`.
+Requires Node 22 and npm on `PATH`.
+
+| Option | Values | Default |
+|---|---|---|
+| Narration engine | `kokoro` (CPU, any OS), `say` (macOS system voices) | `kokoro` |
+| Kokoro voice | `bf_emma`, `bf_isabella`, `bm_george`, `bm_lewis`, `af_heart`, `am_michael`, 28 in total | `bf_emma` |
+| macOS say voice | any name from `say -v '?'` | `Samantha` |
+
+With Kokoro, the first `/plan-review` on a machine installs about 500 MB of packages into `~/.claude/plan-review/deps/` and downloads a 90 MB model into `~/.claude/plan-review/models/`. Generation runs at two to three times real time on a laptop CPU and caches every sentence, so a revision costs only its new sentences. `say` downloads nothing; premium voices are installed in System Settings > Accessibility > Spoken Content.
+
+Check a voice after changing it or after a macOS upgrade (`say` falls back to the compact system voice without an error when a voice is missing):
+
+    node ~/.claude/plugins/cache/primestack/plan-review/1.0.0/scripts/check-voice.mjs --tts say --say-voice "Jamie (Premium)"
+
+## Per plan
+
+    /plan-review <plan.md> --voice bm_george
+    /plan-review <plan.md> --voice "Jamie (Premium)" --rate 180
+
+`--voice` overrides the configured voice for that plan; `--rate` applies to `say`.
 
 ## Layout
 
     commands/plan-review.md        the round loop
     skills/plan-review-manifest    plan → manifest rules
     skills/plan-review-respond     submission → replies, plan edits, next round
+    hooks/hooks.json               hand-off after a plan is saved
     schema/                        manifest and submission schemas
-    scripts/                       validate, audio, render, serve, diff
+    scripts/                       validate, audio, render, serve, diff, ensure-deps
+    scripts/tts/kokoro/            pinned Kokoro dependency bundle
     template/                      page.html, page.css, state.mjs, page.js
     tests/                         node --test tests/
 
 Review artifacts live in `~/.claude/plan-review/<repo>/<plan>/`.
 
-## Voice
+## Develop
 
-`~/.claude/plan-review/config.json` selects the engine and voice every generation uses. Without the file, the defaults are Kokoro with `bf_emma`.
+    git clone https://github.com/primestack-labs/plan-review ~/Projects/plan-review
+    cd ~/Projects/plan-review && npm test && npm run validate
+    claude --plugin-dir ~/Projects/plan-review
 
-Kokoro, local on any OS (default):
+Release: bump `version` in `.claude-plugin/plugin.json` and `package.json`, then `claude plugin tag --push`.
 
-    {
-      "tts": "kokoro",
-      "voice": "bf_emma"
-    }
+## Licence
 
-macOS system voice:
-
-    {
-      "tts": "say",
-      "voice": "Jamie (Premium)",
-      "rate": "180"
-    }
-
-| Key | Values | Notes |
-|---|---|---|
-| `tts` | `kokoro` (default), `say` | engine |
-| `voice` | Kokoro: `bf_emma`, `bf_isabella`, `bm_george`, `bm_lewis` (British), `af_heart`, `am_michael` (American), 28 in total; `say`: any name from `say -v '?'`, empty for the system default | |
-| `rate` | words per minute | `say` only; omit for the voice's default |
-
-Kokoro synthesises each paragraph sentence by sentence, joins the sentences with a 125 ms pause, and caches sentence audio under `~/.claude/plan-review/cache/kokoro/`, so a revision costs only its new sentences; the model lives under `~/.claude/plan-review/models/`. `say` falls back to the compact system voice without an error when a voice is missing, and macOS upgrades drop downloaded voices.
-
-After editing the config or upgrading macOS run:
-
-    npm run check-voice
-
-For `kokoro` it checks the voice exists in the model; for `say` it synthesises a probe with the configured voice and with a bogus name and fails when the two are identical.
+MIT
