@@ -1,0 +1,14 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "primestack",
+  "description": "Claude Code plugins by PrimeStack Labs",
+  "owner": { "name": "PrimeStack Labs", "url": "https://primestack.tech" },
+  "plugins": [
+    {
+      "name": "plan-review",
+      "source": "./",
+      "category": "productivity",
+      "tags": ["plan", "review", "superpowers", "narration"]
+    }
+  ]
+}
