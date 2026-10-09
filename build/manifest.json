@@ -1,0 +1,826 @@
+{
+  "schema": 1,
+  "plan": {
+    "path": "samples/2026-10-08-ledgerline-recurring-billing.md",
+    "title": "Recurring Billing Plan 2/2 — Schedules, generation, payment links, editor, cash forecast",
+    "hash": "866f37fbbc4979d591638f889f34a46dedb497ec",
+    "goal": "Turn the schedules that Plan 1 stores into money: Ledgerline issues each recurring invoice on time and never twice, gives every invoice a card-payment link that marks it paid, lets the owner set up a schedule from the invoice editor on desktop and phone, and shows the next 90 days of expected cash on the dashboard.",
+    "architecture": "A pure recurrence engine computes occurrences in the schedule's timezone and is the only place calendar rules live. An hourly BullMQ job materialises due invoices behind a database unique index, so a second worker or a retry is a no-op. Payments go out through the existing Tollgate adapter and come back through one signed webhook that records the payment and emits invoice.paid. The web side adds the recurrence panel to the invoice editor and a forecast card to the dashboard, both on TanStack Query.",
+    "techStack": "Node 22, Express 5, Knex on PostgreSQL 16, BullMQ on Redis 7, date-fns-tz, zod, React 19 + Vite + TanStack Query v5 in web/, Vitest on both sides, Docker Compose.",
+    "spec": "docs/superpowers/specs/2026-09-14-recurring-billing-design.md, sections \"Recurrence rules\", \"Generation and idempotency\", \"Payment links and webhooks\", \"Editor and mobile UI\" and \"Cash forecast\"."
+  },
+  "constraints": [
+    "Work on feature/ll-87-recurring-billing; every commit carries the Refs LL-87 trailer as its second -m.",
+    "Docker only: migrations and tests run through docker exec ledgerline_api ... and docker exec ledgerline_web ...; never run Node on the host.",
+    "Server: every route declares a zod schema through validate(); every query filters by account_id from req.auth.accountId; no console.*; outbound HTTP only through the undici client in server/src/lib/http.js; errors are AppError(code, status) with a stable upper-snake code.",
+    "Web: design tokens from web/src/styles/tokens.css, the shared Sheet recipe for every drawer, npm run lint:fix before each commit, and a browser check at 360 px and 1280 px for UI tasks.",
+    "Money is integer cents with the account currency alongside, formatted only at render time by formatMoney(cents, currency); dates travel as ISO strings (yyyy-MM-dd for calendar dates) and timezone conversion goes through date-fns-tz only.",
+    "Before a task is done: its tests pass in Docker, the touched side's full suite passes, and npm run lint:fix leaves no diff."
+  ],
+  "decisions": [
+    {
+      "id": "d1",
+      "kind": "assumption",
+      "sectionId": "t1-recurrence-engine",
+      "text": "Plan 1's schedules.timezone always holds a valid IANA name; rows imported by its migration script were never re-validated."
+    },
+    {
+      "id": "d2",
+      "kind": "confirm",
+      "sectionId": "t1-recurrence-engine",
+      "text": "With skip_weekends on, a Saturday or Sunday moves back to Friday rather than forward to Monday. Friday is implemented because it never pushes an invoice into the next month. Product-confirm before release.",
+      "options": [
+        "Back to Friday (implemented)",
+        "Forward to Monday"
+      ]
+    },
+    {
+      "id": "d3",
+      "kind": "confirm",
+      "sectionId": "t2-invoice-generation-job",
+      "text": "Generated invoices (A) stay as drafts for the owner to review and send (implemented), or (B) go out to the customer automatically at 06:00 local. Product-confirm before release.",
+      "options": [
+        "A: stay as drafts for the owner (implemented)",
+        "B: send automatically at 06:00 local"
+      ]
+    },
+    {
+      "id": "d4",
+      "kind": "open-question",
+      "sectionId": "t2-invoice-generation-job",
+      "text": "When a paused schedule is resumed, does it generate the periods it missed while paused, or start from the next future period? The 7-day lookback currently backfills up to a week.",
+      "options": [
+        "Generate the missed periods",
+        "Start from the next future period"
+      ]
+    },
+    {
+      "id": "d5",
+      "kind": "assumption",
+      "sectionId": "t3-payment-links-tollgate-webhook",
+      "text": "Tollgate presumably retries a failed webhook delivery for up to 72 hours; the webhook_events primary key ignores every repeat either way."
+    },
+    {
+      "id": "d6",
+      "kind": "open-question",
+      "sectionId": "t4-recurrence-panel-mobile-schedule",
+      "text": "Can a bookkeeper pause and resume a schedule without being able to edit it? Today pausing is a PUT and needs schedules:write, which only owners hold."
+    }
+  ],
+  "taskMap": {
+    "nodes": [
+      {
+        "id": "t1-recurrence-engine",
+        "title": "Recurrence engine"
+      },
+      {
+        "id": "t2-invoice-generation-job",
+        "title": "Invoice generation"
+      },
+      {
+        "id": "t3-payment-links-tollgate-webhook",
+        "title": "Payment links"
+      },
+      {
+        "id": "t4-recurrence-panel-mobile-schedule",
+        "title": "Recurrence panel"
+      },
+      {
+        "id": "t5-cash-forecast-card",
+        "title": "Cash forecast"
+      }
+    ],
+    "edges": [
+      {
+        "from": "t1-recurrence-engine",
+        "to": "t2-invoice-generation-job",
+        "label": "nextOccurrences"
+      },
+      {
+        "from": "t1-recurrence-engine",
+        "to": "t4-recurrence-panel-mobile-schedule",
+        "label": "nextOccurrences"
+      },
+      {
+        "from": "t1-recurrence-engine",
+        "to": "t5-cash-forecast-card",
+        "label": "nextOccurrences"
+      },
+      {
+        "from": "t2-invoice-generation-job",
+        "to": "t5-cash-forecast-card",
+        "label": "invoices.schedule_id"
+      },
+      {
+        "from": "t3-payment-links-tollgate-webhook",
+        "to": "t5-cash-forecast-card",
+        "label": "invoice.paid"
+      }
+    ]
+  },
+  "narration": {
+    "overview": [
+      {
+        "id": "overview-p1",
+        "target": "goal",
+        "text": "Goal. Turn the schedules that plan one stores into money. Ledgerline issues each recurring invoice on time and never twice, gives every invoice a card payment link that marks it paid, lets the owner set up a schedule from the invoice editor on desktop and phone, and shows the next ninety days of expected cash on the dashboard."
+      },
+      {
+        "id": "overview-p2",
+        "target": "architecture",
+        "text": "Architecture. A pure recurrence engine computes occurrences in the schedule timezone and is the only place calendar rules live. An hourly Bull M Q job creates due invoices behind a database unique index, so a second worker or a retry changes nothing. Payments return through one signed Tollgate webhook that records the payment and emits invoice paid. The web side adds the editor panel and a dashboard forecast card."
+      },
+      {
+        "id": "overview-p3",
+        "target": "techStack",
+        "text": "Tech stack. Node twenty two, Express five, Knex on Postgres sixteen, and Bull M Q on Redis seven on the server, with date f n s t z for timezones and zod for validation. The web side uses React nineteen, Vite and TanStack Query version five. Vitest tests both sides, and Docker Compose runs everything."
+      },
+      {
+        "id": "overview-p4",
+        "target": "taskMap",
+        "text": "Task map. Five tasks joined by five links. The recurrence engine feeds invoice generation, the recurrence panel and the cash forecast, each with next occurrences. Invoice generation feeds the cash forecast with the invoice schedule I D column. Payment links feed the cash forecast with the invoice paid event, which drops its cache. The wrap up then verifies everything end to end."
+      }
+    ],
+    "decisions": [
+      {
+        "id": "decisions-p1",
+        "target": "d1",
+        "text": "Assumption, for the recurrence engine. Every plan one schedule holds a valid I A N A timezone name. Plan one validates on write, but rows imported by its migration script were never validated again, so one bad imported value would break the occurrence dates of that schedule."
+      },
+      {
+        "id": "decisions-p2",
+        "target": "d2",
+        "text": "Confirm, for the recurrence engine. With skip weekends on, a Saturday or Sunday moves back to Friday rather than forward to Monday. Friday is implemented because it never pushes an invoice into the next month. Product confirm before release. Options: back to Friday, as implemented, or forward to Monday."
+      },
+      {
+        "id": "decisions-p3",
+        "target": "d3",
+        "text": "Confirm, for invoice generation. Option A: generated invoices stay as drafts for the owner to review and send, which is implemented. Option B: they go out to the customer automatically at six in the morning, local time. Product confirm before release which of the two ships."
+      },
+      {
+        "id": "decisions-p4",
+        "target": "d4",
+        "text": "Open question, for invoice generation. When a paused schedule is resumed, does it generate the periods it missed while paused, or start from the next future period? The seven day lookback currently backfills up to a week. Options: generate the missed periods, or start from the next future period."
+      },
+      {
+        "id": "decisions-p5",
+        "target": "d5",
+        "text": "Assumption, for payment links. Tollgate presumably retries a failed webhook delivery for up to seventy two hours. The design does not depend on the exact window: the webhook events primary key ignores any repeat of the same event, whether it is a retry or a captured body replayed within five minutes."
+      },
+      {
+        "id": "decisions-p6",
+        "target": "d6",
+        "text": "Open question, for the recurrence panel. Can a bookkeeper pause and resume a schedule without being able to edit it? Today pausing is a put request to the schedule route, so it needs the schedules write permission, which only owners hold. This is a yes or no question for product."
+      }
+    ]
+  },
+  "sections": [
+    {
+      "id": "t0-preamble",
+      "ordinal": 0,
+      "title": "Context",
+      "kind": "preamble",
+      "summary": "Plan 2 of 2 for recurring billing. Plan 1 delivered the schedules table, an empty recurrence panel shell in the invoice editor behind the recurring_billing flag, and a Tollgate adapter smoke-tested against the sandbox; this plan makes all three do real work. The developer owns three prerequisites: sandbox keys, a manually registered webhook secret, and a per-environment permission grant.",
+      "changes": [
+        {
+          "role": "Tollgate keys and webhook secret (developer-owned)",
+          "path": "server/.env.development",
+          "action": "modify"
+        }
+      ],
+      "interfaces": {
+        "consumes": [
+          "schedules table (Plan 1)",
+          "recurrence panel shell in the invoice editor, behind the recurring_billing flag (Plan 1)",
+          "Tollgate adapter server/src/payments/tollgate.js (Plan 1)",
+          "TOLLGATE_API_KEY",
+          "TOLLGATE_ACCOUNT_ID",
+          "TOLLGATE_WEBHOOK_SECRET"
+        ],
+        "produces": []
+      },
+      "decisionIds": [],
+      "ui": [],
+      "risks": [
+        "Manual step: register https://<tunnel-host>/api/webhooks/tollgate for checkout.completed in the Tollgate dashboard, copy the signing secret into TOLLGATE_WEBHOOK_SECRET, and repeat for staging and production. Without it every webhook answers 400 and no invoice is ever marked paid by card.",
+        "Manual step: run npm run perms:grant -- recurring-billing once per environment after Task 4 lands (LL-61). Without the grant every new route 403s for real accounts while the tests stay green, because the test harness grants all permissions."
+      ],
+      "blocks": [],
+      "executorDetail": "> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.\n\n**Position in the series:** Plan 1 delivered the `schedules` table (`id`, `account_id`, `customer_id`, `template_invoice_id` unique, `frequency`, `anchor_day`, `starts_on`, `ends_on`, `max_count`, `skip_weekends`, `timezone`, `status`), the empty recurrence panel shell in the invoice editor behind the `recurring_billing` flag, and the Tollgate adapter (`server/src/payments/tollgate.js`) smoke-tested against the sandbox. This plan makes all three do real work.\n\n**Prerequisites the developer owns:**\n\n1. Tollgate sandbox keys `TOLLGATE_API_KEY` and `TOLLGATE_ACCOUNT_ID` in `server/.env.development`.\n2. The webhook secret is a manual step: in the Tollgate dashboard, register `https://<tunnel-host>/api/webhooks/tollgate` for `checkout.completed`, copy the signing secret into `TOLLGATE_WEBHOOK_SECRET`, and repeat for staging and production. Without it every webhook answers 400 and no invoice is ever marked paid by card.\n3. Run `npm run perms:grant -- recurring-billing` once per environment after Task 4 lands (tracked under LL-61). Without the grant every new route 403s for real accounts while the tests stay green, because the test harness grants all permissions.",
+      "narration": [
+        {
+          "id": "t0-preamble-p1",
+          "target": "summary",
+          "text": "Context. This is plan two of two for recurring billing. Plan one delivered the schedules table, an empty recurrence panel in the invoice editor behind a feature flag, and a Tollgate payment adapter tested against its sandbox. This plan makes all three do real work. The developer owns three prerequisites: sandbox keys, a webhook secret, and a permission grant."
+        },
+        {
+          "id": "t0-preamble-p2",
+          "target": "interfaces",
+          "text": "Consumes three things from plan one: the schedules table, the empty recurrence panel shell, and the Tollgate adapter. It also needs three settings in the development environment file: the Tollgate A P I key, the Tollgate account I D, and the webhook signing secret. The preamble itself produces nothing; the tasks that follow pick up everything it names."
+        },
+        {
+          "id": "t0-preamble-p3",
+          "target": "risks",
+          "text": "Two manual steps. Register the webhook in the Tollgate dashboard and copy its signing secret for every environment; without it every webhook answers four hundred and no invoice is marked paid by card. And run the recurring billing permission grant once per environment after task four; without it every new route answers four oh three for real accounts while the tests stay green."
+        }
+      ],
+      "sourceRange": [
+        1,
+        19
+      ],
+      "contentHash": "9954aa15063f3d8af43513c9d67a0c8e4ff0d9dd"
+    },
+    {
+      "id": "t1-recurrence-engine",
+      "ordinal": 1,
+      "title": "Task 1: Recurrence engine",
+      "kind": "task",
+      "summary": "A pure function that turns a schedule row into its next occurrences, the only place calendar rules live. It clamps anchor days to short months, can move weekend dates back to Friday, honours an end date or a count, and issues each occurrence at 06:00 in the schedule's timezone, steady across daylight-saving changes.",
+      "changes": [
+        {
+          "role": "recurrence engine",
+          "path": "server/src/billing/recurrence.js",
+          "action": "create"
+        },
+        {
+          "role": "recurrence engine tests",
+          "path": "server/test/billing/recurrence.test.js",
+          "action": "test"
+        }
+      ],
+      "interfaces": {
+        "consumes": [
+          "schedules.frequency (Plan 1)",
+          "schedules.anchor_day (Plan 1)",
+          "schedules.starts_on (Plan 1)",
+          "schedules.ends_on (Plan 1)",
+          "schedules.max_count (Plan 1)",
+          "schedules.skip_weekends (Plan 1)",
+          "schedules.timezone (Plan 1)"
+        ],
+        "produces": [
+          "nextOccurrences(schedule, from, count) returning { nominalOn, issueOn, issueAt }[]"
+        ]
+      },
+      "decisionIds": [
+        "d1",
+        "d2"
+      ],
+      "ui": [],
+      "risks": [
+        "DST gotcha: adding 24 hours to a UTC instant drifts by an hour twice a year, so the engine derives the local date first and converts 06:00 local wall time once, at the end."
+      ],
+      "blocks": [
+        {
+          "id": "t1-recurrence-engine-b1",
+          "role": "server/test/billing/recurrence.test.js",
+          "kind": "test",
+          "lang": "js",
+          "summary": "Three Vitest cases against a monthly Europe/Lisbon schedule: an anchor of 31 clamps to the last day of shorter months, a Saturday moves back to Friday when skip_weekends is on, and the issue instant stays at 06:00 local on both sides of the October DST change.",
+          "source": "// server/test/billing/recurrence.test.js\nimport { nextOccurrences } from '../../src/billing/recurrence.js';\n\nconst base = { frequency: 'monthly', anchor_day: 1, starts_on: '2026-11-01', ends_on: null, max_count: null, skip_weekends: false, timezone: 'Europe/Lisbon' };\nconst dates = (s, n, from = new Date('2026-10-08T12:00:00Z')) => nextOccurrences(s, from, n).map((o) => o.nominalOn);\ndescribe('nextOccurrences', () => {\n  it('clamps an anchor of 31 to the last day of shorter months', () => {\n    expect(dates({ ...base, anchor_day: 31, starts_on: '2027-01-01' }, 3)).toEqual(['2027-01-31', '2027-02-28', '2027-03-31']);\n  });\n  it('moves weekend dates back to Friday when skip_weekends is on', () => {\n    const [first] = nextOccurrences({ ...base, skip_weekends: true, starts_on: '2026-08-01' }, new Date('2026-07-20T00:00:00Z'), 1);\n    expect(first).toMatchObject({ nominalOn: '2026-08-01', issueOn: '2026-07-31' });\n  });\n  it('issues at 06:00 local time on both sides of a DST change', () => {\n    const at = nextOccurrences({ ...base, starts_on: '2026-10-01' }, new Date('2026-09-30T00:00:00Z'), 2).map((o) => o.issueAt);\n    expect(at).toEqual(['2026-10-01T05:00:00.000Z', '2026-11-01T06:00:00.000Z']);\n  });\n});",
+          "behaviors": [
+            "clamps an anchor of 31 to the last day of shorter months",
+            "moves weekend dates back to Friday when skip_weekends is on",
+            "issues at 06:00 local time on both sides of a DST change"
+          ]
+        },
+        {
+          "id": "t1-recurrence-engine-b2",
+          "role": "server/src/billing/recurrence.js",
+          "kind": "code",
+          "lang": "js",
+          "summary": "Calendar helpers do date arithmetic on yyyy-MM-dd strings through Date.UTC, so the host timezone never leaks in. candidateAt steps weekly schedules from the anchor weekday and the others by whole months, clamping the anchor to the month length. nextOccurrences stops at max_count or ends_on, applies the weekend shift, skips dates before today in the schedule's timezone, and converts 06:00 local to a UTC instant once.",
+          "source": "// server/src/billing/recurrence.js\nimport { fromZonedTime, formatInTimeZone } from 'date-fns-tz';\n\nconst MONTH_STEP = { monthly: 1, quarterly: 3, yearly: 12 };\nconst parts = (iso) => iso.split('-').map(Number);\nconst ymd = (y, m, d) => new Date(Date.UTC(y, m - 1, d)).toISOString().slice(0, 10);\nconst weekday = (iso) => new Date(`${iso}T00:00:00Z`).getUTCDay() || 7;\nconst addDays = (iso, n) => { const [y, m, d] = parts(iso); return ymd(y, m, d + n); };\nfunction candidateAt(s, index) {\n  if (s.frequency === 'weekly') return addDays(s.starts_on, ((s.anchor_day - weekday(s.starts_on) + 7) % 7) + index * 7);\n  const [y, m] = parts(s.starts_on);\n  const mi = m - 1 + index * MONTH_STEP[s.frequency];\n  const [year, month] = [y + Math.floor(mi / 12), (mi % 12) + 1];\n  return ymd(year, month, Math.min(s.anchor_day, new Date(Date.UTC(year, month, 0)).getUTCDate()));\n}\nconst offWeekend = (iso) => ({ 6: addDays(iso, -1), 7: addDays(iso, -2) })[weekday(iso)] ?? iso;\nexport function nextOccurrences(schedule, from, count) {\n  const today = formatInTimeZone(from, schedule.timezone, 'yyyy-MM-dd');\n  const out = [];\n  for (let i = 0; out.length < count; i += 1) {\n    if (schedule.max_count != null && i >= schedule.max_count) break;\n    const nominalOn = candidateAt(schedule, i);\n    if (schedule.ends_on && nominalOn > schedule.ends_on) break;\n    const issueOn = schedule.skip_weekends ? offWeekend(nominalOn) : nominalOn;\n    if (issueOn < today) continue;\n    out.push({ nominalOn, issueOn, issueAt: fromZonedTime(`${issueOn}T06:00:00`, schedule.timezone).toISOString() });\n  }\n  return out;\n}"
+        }
+      ],
+      "executorDetail": "- [ ] **Step 1: Write the failing tests**\n\n- [ ] **Step 2: Implement the engine**\n\nCalendar arithmetic runs on `yyyy-MM-dd` strings through `Date.UTC`, so the host timezone never leaks in. DST gotcha: adding 24 hours to a UTC instant drifts by an hour twice a year, so the engine derives the local date first and converts 06:00 local wall time once, at the end. Assume Plan 1's `schedules.timezone` always holds a valid IANA name; rows imported by its migration script were never re-validated.\n\nProduct-confirm before release that `skip_weekends` moves a Saturday or Sunday back to Friday rather than forward to Monday; Friday is implemented because it never pushes an invoice into the next month.\n\n- [ ] **Step 3: Run the tests and commit**\n\n```bash\ndocker exec ledgerline_api npx vitest run test/billing/recurrence.test.js\n```\n\n```bash\ngit add server/src/billing/recurrence.js server/test/billing/recurrence.test.js\ngit commit -m \"feat(billing): add the recurrence engine\" -m \"Refs LL-87\"\n```",
+      "narration": [
+        {
+          "id": "t1-recurrence-engine-p1",
+          "target": "summary",
+          "text": "Task one, recurrence engine. A pure function turns a schedule row into its next occurrences, and it is the only place calendar rules live. It clamps anchor days to short months, can move weekend dates back to Friday, honours an end date or a count, and issues every occurrence at six in the morning, local time, steady across daylight saving changes."
+        },
+        {
+          "id": "t1-recurrence-engine-p2",
+          "target": "interfaces",
+          "text": "Consumes seven columns of the plan one schedules table: frequency, anchor day, starts on, ends on, maximum count, skip weekends and timezone. Produces next occurrences, which takes a schedule, a starting instant and a count, and returns a list of occurrences, each with a nominal date, an issue date and an issue instant in U T C."
+        },
+        {
+          "id": "t1-recurrence-engine-p3",
+          "target": "decisions",
+          "text": "Two decisions. An assumption: every schedule holds a valid I A N A timezone name, even rows imported by the plan one migration script, which were never validated again. And a confirm: weekend dates move back to Friday, as implemented, or forward to Monday; Friday never pushes an invoice into the next month."
+        },
+        {
+          "id": "t1-recurrence-engine-p4",
+          "target": "risks",
+          "text": "Risk, the daylight saving gotcha. Adding twenty four hours to a U T C instant drifts by an hour twice a year. The engine avoids it by doing all calendar arithmetic on plain date strings, deriving the local date first, and converting six in the morning local time to an instant only once, at the very end."
+        },
+        {
+          "id": "t1-recurrence-engine-p5",
+          "target": "t1-recurrence-engine-b1",
+          "text": "Code block one, recurrence dot test dot j s. Three Vitest cases against a monthly Lisbon schedule. An anchor of thirty one clamps to the last day of shorter months, such as February twenty eighth. A Saturday moves back to Friday when skip weekends is on. And the issue time stays at six local on both sides of a daylight saving change."
+        },
+        {
+          "id": "t1-recurrence-engine-p6",
+          "target": "t1-recurrence-engine-b2",
+          "text": "Code block two, recurrence dot j s. Small helpers do calendar arithmetic on date strings through U T C, so the host timezone never leaks in. Weekly schedules step seven days from the anchor weekday; the others step whole months and clamp the anchor to the month length. The loop stops at the count or end date, applies the weekend shift, and skips dates already past."
+        }
+      ],
+      "sourceRange": [
+        32,
+        112
+      ],
+      "contentHash": "3928378437c7f5744e617f47425f1ab3e56163bc"
+    },
+    {
+      "id": "t2-invoice-generation-job",
+      "ordinal": 2,
+      "title": "Task 2: Invoice generation job",
+      "kind": "task",
+      "summary": "An hourly job that turns every due occurrence of every active schedule into a draft invoice copied from the schedule's template. A unique index on schedule and period makes it idempotent, so two racing workers or a retry produce exactly one invoice, and the number is allocated only after the insert wins so a losing racer never burns one.",
+      "changes": [
+        {
+          "role": "migration adding schedule_id, period_key and their unique index",
+          "path": "server/migrations/20261008090000_invoice_schedule_period.js",
+          "action": "create"
+        },
+        {
+          "role": "generation service",
+          "path": "server/src/billing/generate.js",
+          "action": "create"
+        },
+        {
+          "role": "job registry: hourly generate-due-invoices",
+          "path": "server/src/jobs/index.js",
+          "action": "modify"
+        },
+        {
+          "role": "generation tests",
+          "path": "server/test/billing/generate.test.js",
+          "action": "test"
+        }
+      ],
+      "interfaces": {
+        "consumes": [
+          "nextOccurrences(schedule, from, count)",
+          "existing allocateInvoiceNumber(trx, accountId)"
+        ],
+        "produces": [
+          "invoices.schedule_id",
+          "invoices.period_key",
+          "unique index invoices_schedule_period_unique",
+          "generateForPeriod(db, schedule, occurrence)",
+          "BullMQ job generate-due-invoices"
+        ]
+      },
+      "decisionIds": [
+        "d3",
+        "d4"
+      ],
+      "ui": [],
+      "risks": [
+        "Race: two workers that pick up the same hourly tick both reach the insert; the invoices_schedule_period_unique index lets PostgreSQL accept one row and the other insert becomes a no-op."
+      ],
+      "blocks": [
+        {
+          "id": "t2-invoice-generation-job-b1",
+          "role": "server/test/billing/generate.test.js",
+          "kind": "test",
+          "lang": "js",
+          "summary": "Vitest cases against a seeded monthly schedule starting 2026-11-01: the first period becomes a draft carrying the template's two lines, two concurrent calls for the same period create one invoice, and a repeated call leaves the account's next invoice number at 2.",
+          "source": "// server/test/billing/generate.test.js\nimport { db, resetDb, seedSchedule } from '../support/db.js';\nimport { generateForPeriod } from '../../src/billing/generate.js';\nimport { nextOccurrences } from '../../src/billing/recurrence.js';\n\nconst first = (s) => nextOccurrences(s, new Date('2026-10-30T00:00:00Z'), 1)[0];\ndescribe('invoice generation', () => {\n  let schedule;\n  beforeEach(async () => { await resetDb(); schedule = await seedSchedule({ anchor_day: 1, starts_on: '2026-11-01' }); });\n  it('copies the template lines into a draft for the period', async () => {\n    const { invoice } = await generateForPeriod(db, schedule, first(schedule));\n    expect(invoice).toMatchObject({ period_key: '2026-11-01', status: 'draft' });\n    expect((await db('invoice_lines').where({ invoice_id: invoice.id })).map((l) => l.amount_cents)).toEqual([120000, 4500]);\n  });\n  it('creates one invoice when two workers race for the same period', async () => {\n    const occ = first(schedule);\n    const results = await Promise.all([generateForPeriod(db, schedule, occ), generateForPeriod(db, schedule, occ)]);\n    expect(results.filter((r) => r.created)).toHaveLength(1);\n  });\n  it('does not burn an invoice number when the period already exists', async () => {\n    await generateForPeriod(db, schedule, first(schedule));\n    await generateForPeriod(db, schedule, first(schedule));\n    expect((await db('accounts').where({ id: schedule.account_id }).first()).next_invoice_number).toBe(2);\n  });\n});",
+          "behaviors": [
+            "copies the template lines into a draft for the period",
+            "creates one invoice when two workers race for the same period",
+            "does not burn an invoice number when the period already exists"
+          ]
+        },
+        {
+          "id": "t2-invoice-generation-job-b2",
+          "role": "server/src/billing/generate.js",
+          "kind": "code",
+          "lang": "js",
+          "summary": "generateForPeriod runs in one transaction: it loads the template scoped to the account, inserts the draft with an ignored conflict on schedule and period, and returns created false when the insert lost. Only the winner copies the template lines and then allocates the invoice number, so a lost race never consumes one.",
+          "source": "// server/src/billing/generate.js\nimport { allocateInvoiceNumber } from '../invoices/numbering.js';\n\nexport async function generateForPeriod(db, schedule, occ) {\n  return db.transaction(async (trx) => {\n    const template = await trx('invoices').where({ id: schedule.template_invoice_id, account_id: schedule.account_id }).first();\n    const [invoice] = await trx('invoices')\n      .insert({ account_id: schedule.account_id, customer_id: schedule.customer_id, schedule_id: schedule.id,\n        period_key: occ.nominalOn, issue_on: occ.issueOn, currency: template.currency, status: 'draft' })\n      .onConflict(['schedule_id', 'period_key']).ignore().returning('*');\n    if (!invoice) return { created: false };\n    const lines = await trx('invoice_lines').where({ invoice_id: template.id }).orderBy('position');\n    await trx('invoice_lines').insert(lines.map(({ id, invoice_id, ...line }) => ({ ...line, invoice_id: invoice.id })));\n    const number = await allocateInvoiceNumber(trx, schedule.account_id);\n    const [numbered] = await trx('invoices').where({ id: invoice.id }).update({ number }).returning('*');\n    return { created: true, invoice: numbered };\n  });\n}"
+        }
+      ],
+      "executorDetail": "- [ ] **Step 1: Migration and failing tests**\n\nThe migration adds `invoices.schedule_id` (nullable, references `schedules.id`, `ON DELETE SET NULL`) and `invoices.period_key` (`varchar(10)`, the occurrence's `nominalOn`), with the unique index `invoices_schedule_period_unique` on the pair. That index is the guard against the double-generation race: two workers that pick up the same hourly tick both reach the insert, PostgreSQL lets one row through, and the other insert becomes a no-op.\n\n- [ ] **Step 2: Implement generation and register the job**\n\nThe invoice number is allocated only after the insert wins, so a losing racer never consumes one.\n\n`generateDueInvoices(db, now)` in the same file loops over active schedules, takes `nextOccurrences(schedule, now - 7 days, 10)` whose `issueAt` has passed, and calls `generateForPeriod` for each. Register `generate-due-invoices` in `server/src/jobs/index.js` with `{ pattern: '5 * * * *' }`. Product-confirm before release, option A or B: generated invoices (A) stay as drafts for the owner to review and send (implemented), or (B) go out to the customer automatically at 06:00 local. Open question: when a paused schedule is resumed, does it generate the periods it missed while paused, or start from the next future period? The 7-day lookback currently backfills up to a week.\n\n- [ ] **Step 3: Run the tests and commit**\n\n```bash\ndocker exec ledgerline_api npx knex migrate:latest\ndocker exec ledgerline_api npx vitest run test/billing\n```\n\n```bash\ngit add server/migrations/20261008090000_invoice_schedule_period.js server/src/billing/generate.js server/src/jobs/index.js server/test/billing/generate.test.js\ngit commit -m \"feat(billing): generate due invoices hourly, once per period\" -m \"Refs LL-87\"\n```",
+      "narration": [
+        {
+          "id": "t2-invoice-generation-job-p1",
+          "target": "summary",
+          "text": "Task two, invoice generation job. An hourly job turns every due occurrence of every active schedule into a draft invoice copied from the schedule template. A unique index on schedule and period makes it idempotent, so two racing workers or a retry produce exactly one invoice, and the number is allocated only after the insert wins."
+        },
+        {
+          "id": "t2-invoice-generation-job-p2",
+          "target": "interfaces",
+          "text": "Consumes next occurrences from task one and the existing allocate invoice number function. Produces two new invoice columns, schedule I D and period key, with a unique index over the pair; generate for period, which turns one occurrence into a draft; and the hourly Bull M Q job named generate due invoices, which runs five minutes past every hour."
+        },
+        {
+          "id": "t2-invoice-generation-job-p3",
+          "target": "decisions",
+          "text": "Two decisions. A confirm with options A and B: generated invoices stay as drafts for the owner to send, as implemented, or go out automatically at six in the morning local time. And an open question: when a paused schedule resumes, does it generate the periods it missed, or start from the next future period?"
+        },
+        {
+          "id": "t2-invoice-generation-job-p4",
+          "target": "risks",
+          "text": "Risk, the double generation race. Two workers that pick up the same hourly tick both reach the insert. The unique index on schedule and period lets Postgres accept exactly one row, and the other insert becomes a no op. The index, not any check in memory, is what keeps an invoice from being issued twice."
+        },
+        {
+          "id": "t2-invoice-generation-job-p5",
+          "target": "t2-invoice-generation-job-b1",
+          "text": "Code block one, generate dot test dot j s. Three Vitest cases against a seeded monthly schedule. The first period becomes a draft carrying both template lines. Two concurrent calls for the same period create exactly one invoice. And calling twice for a period that already exists leaves the account next invoice number at two, so no number is burned."
+        },
+        {
+          "id": "t2-invoice-generation-job-p6",
+          "target": "t2-invoice-generation-job-b2",
+          "text": "Code block two, generate dot j s. Generate for period runs in one transaction. It loads the template inside the account, inserts the draft while ignoring a conflict on schedule and period, and returns not created when the insert lost. Only the winner copies the template lines and then allocates the invoice number, so a lost race never consumes one."
+        }
+      ],
+      "sourceRange": [
+        114,
+        195
+      ],
+      "contentHash": "29d76c2262448cbf646081ff7c201a01e7c76971"
+    },
+    {
+      "id": "t3-payment-links-tollgate-webhook",
+      "ordinal": 3,
+      "title": "Task 3: Payment links and the Tollgate webhook",
+      "kind": "task",
+      "summary": "Every invoice gets a reusable Tollgate checkout link, and Tollgate's signed webhook records the card payment and emits invoice.paid. The webhook checks an HMAC signature with a five-minute tolerance and records each event id once, so retries and replays never pay an invoice twice.",
+      "changes": [
+        {
+          "role": "migration for payment_links and webhook_events",
+          "path": "server/migrations/20261008091000_payment_links.js",
+          "action": "create"
+        },
+        {
+          "role": "payment link service",
+          "path": "server/src/payments/payment-links.js",
+          "action": "create"
+        },
+        {
+          "role": "Tollgate webhook route",
+          "path": "server/src/routes/webhooks-tollgate.js",
+          "action": "create"
+        },
+        {
+          "role": "Tollgate adapter: webhook signature check",
+          "path": "server/src/payments/tollgate.js",
+          "action": "modify"
+        },
+        {
+          "role": "app wiring: webhook mounted before express.json()",
+          "path": "server/src/app.js",
+          "action": "modify"
+        },
+        {
+          "role": "webhook route tests",
+          "path": "server/test/routes/webhooks-tollgate.test.js",
+          "action": "test"
+        }
+      ],
+      "interfaces": {
+        "consumes": [
+          "existing tollgate.createCheckoutSession({ amountCents, currency, reference })",
+          "existing recordPayment(trx, { invoiceId, amountCents, method, reference })"
+        ],
+        "produces": [
+          "createPaymentLink(invoice)",
+          "POST /api/invoices/:id/payment-link",
+          "POST /api/webhooks/tollgate",
+          "event invoice.paid"
+        ]
+      },
+      "decisionIds": [
+        "d5"
+      ],
+      "ui": [],
+      "risks": [],
+      "blocks": [
+        {
+          "id": "t3-payment-links-tollgate-webhook-b1",
+          "role": "server/test/routes/webhooks-tollgate.test.js",
+          "kind": "test",
+          "lang": "js",
+          "summary": "Supertest cases that sign bodies with the signTollgateBody helper against a seeded payment link: a completed checkout marks the invoice paid, the same event replayed records one payment, and a correctly signed body older than five minutes is rejected with 400 WEBHOOK_SIGNATURE_INVALID.",
+          "source": "// server/test/routes/webhooks-tollgate.test.js\nimport request from 'supertest';\nimport { app } from '../../src/app.js';\nimport { db, resetDb, seedPaymentLink } from '../support/db.js';\nimport { signTollgateBody } from '../support/tollgate.js';\n\nconst post = (s) => request(app).post('/api/webhooks/tollgate').set('Tollgate-Signature', s.signature).type('json').send(s.body);\nconst paidEvent = (link, id, opts) => signTollgateBody({ id, type: 'checkout.completed', data: { session_id: link.tollgate_session_id, amount_cents: 124500 } }, opts);\ndescribe('POST /api/webhooks/tollgate', () => {\n  let link;\n  beforeEach(async () => { await resetDb(); link = await seedPaymentLink({ amountCents: 124500 }); });\n  it('marks the invoice paid on checkout.completed', async () => {\n    await post(paidEvent(link, 'evt_1')).expect(200);\n    expect((await db('invoices').where({ id: link.invoice_id }).first()).status).toBe('paid');\n  });\n  it('records the payment once when the same event is replayed', async () => {\n    const signed = paidEvent(link, 'evt_2');\n    await post(signed).expect(200);\n    await post(signed).expect(200);\n    expect(await db('payments').where({ invoice_id: link.invoice_id })).toHaveLength(1);\n  });\n  it('rejects a correctly signed body older than five minutes', async () => {\n    const res = await post(paidEvent(link, 'evt_3', { ageSeconds: 301 }));\n    expect([res.status, res.body.code]).toEqual([400, 'WEBHOOK_SIGNATURE_INVALID']);\n  });\n});",
+          "behaviors": [
+            "marks the invoice paid on checkout.completed",
+            "records the payment once when the same event is replayed",
+            "rejects a correctly signed body older than five minutes"
+          ]
+        },
+        {
+          "id": "t3-payment-links-tollgate-webhook-b2",
+          "role": "server/src/routes/webhooks-tollgate.js",
+          "kind": "code",
+          "lang": "js",
+          "summary": "The route reads the raw JSON body, rejects a bad signature with WEBHOOK_SIGNATURE_INVALID (400), and parses only checkout.completed events with zod. In one transaction it records the event id and stops if it was already seen, locks the payment link by session, marks it completed and records the payment. invoice.paid is emitted after commit.",
+          "source": "// server/src/routes/webhooks-tollgate.js\nimport { Router, raw } from 'express';\nimport { z } from 'zod';\nimport { db } from '../db.js';\nimport { verifyWebhookSignature } from '../payments/tollgate.js';\nimport { recordPayment } from '../payments/record-payment.js';\nimport { bus } from '../events/bus.js';\nimport { AppError } from '../lib/errors.js';\nimport { config } from '../config.js';\n\nconst eventSchema = z.object({ id: z.string(), type: z.literal('checkout.completed'),\n  data: z.object({ session_id: z.string(), amount_cents: z.number().int().nonnegative() }) });\nexport const tollgateWebhook = Router();\ntollgateWebhook.post('/api/webhooks/tollgate', raw({ type: 'application/json' }), async (req, res) => {\n  const rawBody = req.body.toString('utf8');\n  if (!verifyWebhookSignature(rawBody, req.get('Tollgate-Signature'), config.tollgate.webhookSecret)) throw new AppError('WEBHOOK_SIGNATURE_INVALID', 400);\n  const event = eventSchema.parse(JSON.parse(rawBody));\n  const link = await db.transaction(async (trx) => {\n    const fresh = await trx('webhook_events').insert({ event_id: event.id }).onConflict('event_id').ignore().returning('event_id');\n    if (fresh.length === 0) return null;\n    const row = await trx('payment_links').where({ tollgate_session_id: event.data.session_id }).forUpdate().first();\n    if (!row) throw new AppError('PAYMENT_LINK_NOT_FOUND', 404);\n    await trx('payment_links').where({ id: row.id }).update({ status: 'completed' });\n    await recordPayment(trx, { invoiceId: row.invoice_id, amountCents: event.data.amount_cents, method: 'tollgate', reference: event.data.session_id });\n    return row;\n  });\n  if (link) bus.emit('invoice.paid', { invoiceId: link.invoice_id, accountId: link.account_id });\n  res.json({ received: true });\n});"
+        }
+      ],
+      "executorDetail": "- [ ] **Step 1: Links, signature check, migration and failing tests**\n\nThe migration creates `payment_links` (`account_id`, `invoice_id`, `tollgate_session_id` unique, `url`, `status`, `expires_at`) and `webhook_events` keyed by `event_id`. `createPaymentLink(invoice)` reuses an open link with more than an hour left, else creates a Tollgate session for `balance_cents`; `POST /api/invoices/:id/payment-link` exposes it. `verifyWebhookSignature(rawBody, header, secret)` in `tollgate.js` compares an HMAC-SHA256 of `\"<t>.<rawBody>\"` with `timingSafeEqual` and rejects a `t` older than 300 seconds.\n\n- [ ] **Step 2: The webhook endpoint**\n\nThe `webhook_events` primary key is the replay guard. Tollgate presumably retries a failed delivery for up to 72 hours, and a captured signed body can be resent inside the 300-second window; either way the second insert is ignored and the handler answers 200 without touching the invoice.\n\nMount it in `server/src/app.js` before `express.json()` so the raw body reaches the signature check.\n\n- [ ] **Step 3: Run the tests and commit**\n\n```bash\ndocker exec ledgerline_api npx knex migrate:latest\ndocker exec ledgerline_api npx vitest run test/routes/webhooks-tollgate.test.js\n```\n\n```bash\ngit add server/migrations/20261008091000_payment_links.js server/src/payments server/src/routes/webhooks-tollgate.js server/src/app.js server/test/routes/webhooks-tollgate.test.js\ngit commit -m \"feat(payments): add Tollgate payment links and the signed webhook\" -m \"Refs LL-87\"\n```",
+      "narration": [
+        {
+          "id": "t3-payment-links-tollgate-webhook-p1",
+          "target": "summary",
+          "text": "Task three, payment links and the Tollgate webhook. Every invoice gets a reusable Tollgate checkout link, and the signed Tollgate webhook records the card payment and emits invoice paid. The webhook checks an H M A C signature with a five minute tolerance and records each event I D once, so retries and replays never pay an invoice twice."
+        },
+        {
+          "id": "t3-payment-links-tollgate-webhook-p2",
+          "target": "interfaces",
+          "text": "Consumes the existing create checkout session call and the existing record payment function. Produces create payment link, which reuses an open link with more than an hour left or makes a new one; a post route at slash api slash invoices slash I D slash payment link; the webhook post route at slash api slash webhooks slash tollgate; and the invoice paid event."
+        },
+        {
+          "id": "t3-payment-links-tollgate-webhook-p3",
+          "target": "decisions",
+          "text": "One assumption. Tollgate presumably retries a failed delivery for up to seventy two hours. The design does not depend on that window, because the webhook events primary key ignores any repeat of the same event, whether it is a retry or a captured signed body replayed inside the five minute tolerance."
+        },
+        {
+          "id": "t3-payment-links-tollgate-webhook-p4",
+          "target": "t3-payment-links-tollgate-webhook-b1",
+          "text": "Code block one, webhooks tollgate dot test dot j s. Three Supertest cases that sign bodies with a test helper. A completed checkout marks the invoice paid. The same event delivered twice records exactly one payment. And a correctly signed body older than five minutes is rejected with a four hundred and the signature invalid code."
+        },
+        {
+          "id": "t3-payment-links-tollgate-webhook-p5",
+          "target": "t3-payment-links-tollgate-webhook-b2",
+          "text": "Code block two, webhooks tollgate dot j s. The route reads the raw body, rejects a bad signature with a four hundred, and accepts only completed checkout events. In one transaction it records the event I D and stops if it was seen before, locks the payment link, marks it completed and records the payment. Invoice paid is emitted only after commit."
+        }
+      ],
+      "sourceRange": [
+        197,
+        292
+      ],
+      "contentHash": "43c95fd9790333a8a175db3870f9c519e3889a07"
+    },
+    {
+      "id": "t4-recurrence-panel-mobile-schedule",
+      "ordinal": 4,
+      "title": "Task 4: Recurrence panel and mobile schedule summary",
+      "kind": "task",
+      "summary": "The owner sets up a schedule from the invoice editor: a sidebar panel at desktop widths and a tappable summary row that opens a bottom sheet on phones, both sharing one form and a live preview of the next three invoices. Behind them, routes read, save and preview schedules under new schedules:read and schedules:write permissions.",
+      "changes": [
+        {
+          "role": "schedule routes",
+          "path": "server/src/routes/schedules.js",
+          "action": "create"
+        },
+        {
+          "role": "desktop panel and the shared form",
+          "path": "web/src/invoices/recurrence/RecurrencePanel.jsx",
+          "action": "create"
+        },
+        {
+          "role": "mobile summary row and sheet",
+          "path": "web/src/invoices/recurrence/ScheduleSummary.jsx",
+          "action": "create"
+        },
+        {
+          "role": "schedule query, save and preview hooks",
+          "path": "web/src/invoices/recurrence/useSchedule.js",
+          "action": "create"
+        },
+        {
+          "role": "schedule sentence builder",
+          "path": "web/src/invoices/recurrence/describeSchedule.js",
+          "action": "create"
+        },
+        {
+          "role": "invoice editor: panel or summary by width",
+          "path": "web/src/invoices/InvoiceEditor.jsx",
+          "action": "modify"
+        },
+        {
+          "role": "permission map: schedules:read, schedules:write",
+          "path": "server/src/auth/permissions.js",
+          "action": "modify"
+        }
+      ],
+      "interfaces": {
+        "consumes": [
+          "nextOccurrences(schedule, from, count)",
+          "the Sheet component",
+          "Plan 1's panel slot in the editor"
+        ],
+        "produces": [
+          "GET /api/invoices/:invoiceId/schedule",
+          "PUT /api/invoices/:invoiceId/schedule",
+          "POST /api/schedules/preview",
+          "useSchedule(invoiceId)",
+          "describeSchedule(schedule)",
+          "<RecurrencePanel>",
+          "<ScheduleSummary>"
+        ]
+      },
+      "decisionIds": [
+        "d6"
+      ],
+      "ui": [
+        {
+          "id": "t4-recurrence-panel-mobile-schedule-ui1",
+          "title": "Invoice editor: recurrence panel (switched on)",
+          "width": 1280,
+          "notes": "The panel is the third sidebar card, under Customer and Payment. Switched off it shows only the header and the muted line \"Send this invoice on a schedule.\" Pause appears only for a saved schedule. The first preview row shows a Sunday moved back to Friday. Design exemplars: web/src/customers/CustomerPanel.jsx for the sidebar card anatomy, web/src/payments/RecordPaymentSheet.jsx for a form inside the Sheet recipe.",
+          "html": "<div style=\"font-family:system-ui,-apple-system,sans-serif;color:#1f2328;font-size:14px;line-height:1.4;box-sizing:border-box;width:1280px;background:#f9fafb;padding:24px;display:flex;gap:32px;align-items:flex-start\">\n<div style=\"width:840px\"><div style=\"background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;\"><div style=\"font-size:18px;font-weight:600\">Invoice 1041 · Northwind Coffee</div><div style=\"margin-top:16px;display:flex;justify-content:space-between;color:#6b7280;font-size:12px\"><span>Line items</span><span>Amount</span></div><div style=\"display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid #f3f4f6\"><span>Monthly retainer</span><span style=\"font-variant-numeric:tabular-nums\">$1,200.00</span></div><div style=\"display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid #f3f4f6\"><span>Equipment rental</span><span style=\"font-variant-numeric:tabular-nums\">$45.00</span></div><div style=\"display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid #e5e7eb;font-weight:600\"><span>Total</span><span>$1,245.00</span></div></div></div>\n<div style=\"width:360px;display:flex;flex-direction:column;gap:16px\">\n<div style=\"background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;\"><div style=\"font-weight:600\">Customer</div><div style=\"height:10px;width:70%;background:#e5e7eb;border-radius:4px;margin-top:8px\"></div><div style=\"height:10px;width:50%;background:#e5e7eb;border-radius:4px;margin-top:8px\"></div></div>\n<div style=\"background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;\"><div style=\"font-weight:600\">Payment</div><div style=\"height:10px;width:60%;background:#e5e7eb;border-radius:4px;margin-top:8px\"></div><div style=\"height:10px;width:40%;background:#e5e7eb;border-radius:4px;margin-top:8px\"></div></div>\n<div style=\"background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;\"><div style=\"display:flex;align-items:center;gap:8px\"><span style=\"font-size:16px\">&#8635;</span><span style=\"font-weight:600;flex:1\">Repeat this invoice</span><span style=\"width:36px;height:20px;border-radius:10px;background:#4f46e5;position:relative;display:inline-block\"><span style=\"position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff\"></span></span></div>\n<div style=\"background:#eef2ff;border-radius:8px;padding:8px 10px;margin-top:12px;font-size:13px\">Monthly on the 1st, starting Nov 1, 2026, until cancelled</div>\n<div style=\"display:flex;border:1px solid #d1d5db;border-radius:8px;overflow:hidden;margin-top:12px\"><div style=\"flex:1;text-align:center;padding:6px 0;font-size:13px;\">Weekly</div><div style=\"flex:1;text-align:center;padding:6px 0;font-size:13px;border-left:1px solid #d1d5db;background:#eef2ff;color:#3730a3;font-weight:600\">Monthly</div><div style=\"flex:1;text-align:center;padding:6px 0;font-size:13px;border-left:1px solid #d1d5db;\">Quarterly</div><div style=\"flex:1;text-align:center;padding:6px 0;font-size:13px;border-left:1px solid #d1d5db;\">Yearly</div></div><div style=\"display:flex;gap:12px;margin-top:12px\"><div style=\"flex:1\"><div style=\"font-size:12px;color:#6b7280;margin-bottom:4px\">On</div><div style=\"border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;background:#fff;\">1 &#9662;</div></div><div style=\"flex:1;\"><div style=\"font-size:12px;color:#6b7280;margin-bottom:4px\">Starts</div><div style=\"border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;background:#fff;\">2026-11-01</div></div></div>\n<div style=\"margin-top:12px\"><div style=\"font-size:12px;color:#6b7280;margin-bottom:4px\">Ends</div><div style=\"display:flex;align-items:center;gap:8px;margin-top:6px\"><span style=\"width:14px;height:14px;border-radius:50%;border:1px solid #6b7280;display:inline-block;box-shadow:inset 0 0 0 3px #fff;background:#4f46e5\"></span>Never</div><div style=\"display:flex;align-items:center;gap:8px;margin-top:6px\"><span style=\"width:14px;height:14px;border-radius:50%;border:1px solid #6b7280;display:inline-block;\"></span>On <div style=\"border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;background:#fff;display:inline-block;padding:2px 6px;font-size:12px;color:#6b7280\">date</div></div><div style=\"display:flex;align-items:center;gap:8px;margin-top:6px\"><span style=\"width:14px;height:14px;border-radius:50%;border:1px solid #6b7280;display:inline-block;\"></span>After <div style=\"border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;background:#fff;display:inline-block;padding:2px 8px;font-size:12px\">&nbsp;n&nbsp;</div> invoices</div></div>\n<div style=\"display:flex;align-items:center;gap:8px;margin-top:12px\"><span style=\"width:14px;height:14px;border-radius:3px;background:#4f46e5;display:inline-block\"></span>Move weekend dates to Friday</div>\n<div style=\"margin-top:16px\"><div style=\"font-weight:600;margin-bottom:4px\">Next 3 invoices</div><div style=\"display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #f3f4f6\"><span>Fri, Oct 30 <small style=\"color:#6b7280\">moved from Sun</small></span><span style=\"font-variant-numeric:tabular-nums\">$1,245.00</span></div><div style=\"display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #f3f4f6\"><span>Tue, Dec 1</span><span style=\"font-variant-numeric:tabular-nums\">$1,245.00</span></div><div style=\"display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #f3f4f6\"><span>Fri, Jan 1</span><span style=\"font-variant-numeric:tabular-nums\">$1,245.00</span></div></div>\n<div style=\"display:flex;justify-content:space-between;margin-top:16px\"><div style=\"text-align:center;padding:8px 14px;border-radius:8px;font-weight:600;background:#fff;color:#374151;border:1px solid #d1d5db;border:0;background:transparent\">Pause</div><div style=\"text-align:center;padding:8px 14px;border-radius:8px;font-weight:600;background:#4f46e5;color:#fff;\">Save schedule</div></div></div>\n</div></div>"
+        },
+        {
+          "id": "t4-recurrence-panel-mobile-schedule-ui2",
+          "title": "Mobile editor: schedule summary row and sheet",
+          "width": 360,
+          "notes": "Below 768 px the editor stacks into one column. Top: the summary row for an active schedule (Paused shows a grey pill), then the row with no schedule yet. Below the divider: the bottom Sheet at 90 % height, the same form in one column with Save schedule full width in a sticky footer.",
+          "html": "<div style=\"font-family:system-ui,-apple-system,sans-serif;color:#1f2328;font-size:14px;line-height:1.4;box-sizing:border-box;width:360px;background:#f9fafb;padding:16px\">\n<div style=\"background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;\"><div style=\"font-weight:600\">Line items</div><div style=\"height:10px;width:80%;background:#e5e7eb;border-radius:4px;margin-top:8px\"></div><div style=\"height:10px;width:60%;background:#e5e7eb;border-radius:4px;margin-top:8px\"></div></div>\n<div style=\"margin-top:12px\"><div style=\"height:72px;box-sizing:border-box;display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:0 12px\">\n<span style=\"font-size:18px\">&#8635;</span>\n<div style=\"flex:1;min-width:0\"><div style=\"overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical\">Monthly on the 1st, starting Nov 1, 2026, until cancelled</div><span style=\"display:inline-block;margin-top:4px;font-size:11px;background:#f3f4f6;border-radius:4px;padding:1px 6px\">Next: Fri, Oct 30</span></div>\n<span style=\"display:inline-block;padding:2px 8px;border-radius:999px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;white-space:nowrap\">Active</span><span style=\"color:#6b7280;font-size:18px\">&#8250;</span></div></div>\n<div style=\"margin-top:12px\"><div style=\"height:72px;box-sizing:border-box;display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:0 12px\">\n<span style=\"font-size:18px\">&#8635;</span>\n<div style=\"flex:1;min-width:0\"><div style=\"overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical\">Repeat this invoice</div></div>\n<span style=\"display:inline-block;padding:2px 8px;border-radius:999px;background:#f3f4f6;color:#6b7280;font-size:12px;font-weight:600;white-space:nowrap\">Off</span><span style=\"color:#6b7280;font-size:18px\">&#8250;</span></div></div>\n<div style=\"margin:16px 0 8px;font-size:11px;color:#6b7280;text-align:center;border-top:1px dashed #d1d5db;padding-top:6px\">after tapping: bottom sheet, 90 % height</div>\n<div style=\"background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -4px 16px rgba(0,0,0,.12);padding:12px 16px 0\">\n<div style=\"width:40px;height:4px;border-radius:2px;background:#d1d5db;margin:0 auto 12px\"></div>\n<div style=\"font-weight:600;font-size:16px\">Repeat this invoice</div>\n<div style=\"background:#eef2ff;border-radius:8px;padding:8px 10px;margin-top:12px;font-size:13px\">Monthly on the 1st, starting Nov 1, 2026, until cancelled</div>\n<div style=\"display:flex;border:1px solid #d1d5db;border-radius:8px;overflow:hidden;margin-top:12px\"><div style=\"flex:1;text-align:center;padding:6px 0;font-size:13px;\">Weekly</div><div style=\"flex:1;text-align:center;padding:6px 0;font-size:13px;border-left:1px solid #d1d5db;background:#eef2ff;color:#3730a3;font-weight:600\">Monthly</div><div style=\"flex:1;text-align:center;padding:6px 0;font-size:13px;border-left:1px solid #d1d5db;\">Quarterly</div><div style=\"flex:1;text-align:center;padding:6px 0;font-size:13px;border-left:1px solid #d1d5db;\">Yearly</div></div><div style=\"margin-top:12px\"><div style=\"flex:1\"><div style=\"font-size:12px;color:#6b7280;margin-bottom:4px\">On</div><div style=\"border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;background:#fff;\">1 &#9662;</div></div><div style=\"flex:1;margin-top:12px\"><div style=\"font-size:12px;color:#6b7280;margin-bottom:4px\">Starts</div><div style=\"border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;background:#fff;\">2026-11-01</div></div></div>\n<div style=\"margin-top:12px\"><div style=\"font-size:12px;color:#6b7280;margin-bottom:4px\">Ends</div><div style=\"display:flex;align-items:center;gap:8px;margin-top:6px\"><span style=\"width:14px;height:14px;border-radius:50%;border:1px solid #6b7280;display:inline-block;box-shadow:inset 0 0 0 3px #fff;background:#4f46e5\"></span>Never</div><div style=\"display:flex;align-items:center;gap:8px;margin-top:6px\"><span style=\"width:14px;height:14px;border-radius:50%;border:1px solid #6b7280;display:inline-block;\"></span>On <div style=\"border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;background:#fff;display:inline-block;padding:2px 6px;font-size:12px;color:#6b7280\">date</div></div><div style=\"display:flex;align-items:center;gap:8px;margin-top:6px\"><span style=\"width:14px;height:14px;border-radius:50%;border:1px solid #6b7280;display:inline-block;\"></span>After <div style=\"border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;background:#fff;display:inline-block;padding:2px 8px;font-size:12px\">&nbsp;n&nbsp;</div> invoices</div></div>\n<div style=\"display:flex;align-items:center;gap:8px;margin-top:12px\"><span style=\"width:14px;height:14px;border-radius:3px;background:#4f46e5;display:inline-block\"></span>Move weekend dates to Friday</div>\n<div style=\"margin-top:16px\"><div style=\"font-weight:600;margin-bottom:4px\">Next 3 invoices</div><div style=\"display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #f3f4f6\"><span>Fri, Oct 30 <small style=\"color:#6b7280\">moved from Sun</small></span><span style=\"font-variant-numeric:tabular-nums\">$1,245.00</span></div><div style=\"display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #f3f4f6\"><span>Tue, Dec 1</span><span style=\"font-variant-numeric:tabular-nums\">$1,245.00</span></div><div style=\"display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #f3f4f6\"><span>Fri, Jan 1</span><span style=\"font-variant-numeric:tabular-nums\">$1,245.00</span></div></div>\n<div style=\"background:#fff;padding:12px 0;margin-top:12px;border-top:1px solid #e5e7eb\"><div style=\"text-align:center;padding:8px 14px;border-radius:8px;font-weight:600;background:#4f46e5;color:#fff;\">Save schedule</div></div>\n</div></div>"
+        }
+      ],
+      "risks": [
+        "The panel block is abbreviated: the On, Starts and Ends fields, the weekend checkbox and the Pause button are a comment telling the executor to copy the field markup from web/src/settings/AccountForm.jsx."
+      ],
+      "blocks": [
+        {
+          "id": "t4-recurrence-panel-mobile-schedule-b1",
+          "role": "web/src/invoices/recurrence/RecurrencePanel.jsx",
+          "kind": "code",
+          "lang": "jsx",
+          "summary": "RecurrenceForm keeps a local draft seeded from the saved schedule or defaultSchedule(), and renders the describeSchedule sentence, the frequency segmented control, the Next 3 invoices preview with a moved-from note, and Save schedule. Changing frequency resets the anchor day to 1. The other fields and Pause are a comment pointing at AccountForm.jsx.",
+          "source": "// web/src/invoices/recurrence/RecurrencePanel.jsx\nimport { useEffect, useState } from 'react';\nimport { useSchedule, usePreview, defaultSchedule } from './useSchedule.js';\nimport { describeSchedule } from './describeSchedule.js';\nimport { formatMoney } from '../../lib/money.js';\n\nconst FREQUENCIES = ['weekly', 'monthly', 'quarterly', 'yearly'];\nexport function RecurrenceForm({ invoiceId, total, onSaved }) {\n  const { data, save } = useSchedule(invoiceId);\n  const [draft, setDraft] = useState(null);\n  useEffect(() => setDraft(data?.schedule ?? defaultSchedule()), [data]);\n  const preview = usePreview(draft);\n  if (!draft) return null;\n  return (\n    <form className=\"recurrence\" onSubmit={(e) => { e.preventDefault(); save.mutate(draft, { onSuccess: onSaved }); }}>\n      <p className=\"recurrence__summary\">{describeSchedule(draft)}</p>\n      <div className=\"segmented\" role=\"radiogroup\" aria-label=\"Frequency\">\n        {FREQUENCIES.map((f) => <button key={f} type=\"button\" role=\"radio\" aria-checked={draft.frequency === f}\n          onClick={() => setDraft({ ...draft, frequency: f, anchor_day: 1 })}>{f[0].toUpperCase() + f.slice(1)}</button>)}\n      </div>\n      {/* \"On\", \"Starts\", \"Ends\", the weekend checkbox and the \"Pause\" button: copy the field markup from web/src/settings/AccountForm.jsx. */}\n      <section aria-label=\"Next 3 invoices\">\n        {preview.data?.upcoming.map((o) => (\n          <div key={o.nominalOn} className=\"recurrence__row\">\n            <span>{o.issueOn}{o.issueOn !== o.nominalOn && <small className=\"muted\"> moved from {o.nominalOn}</small>}</span>\n            <span className=\"tabular\">{formatMoney(total.cents, total.currency)}</span>\n          </div>))}\n      </section>\n      <button type=\"submit\" className=\"btn btn--primary\" disabled={save.isPending}>Save schedule</button>\n    </form>\n  );\n}"
+        },
+        {
+          "id": "t4-recurrence-panel-mobile-schedule-b2",
+          "role": "web/src/invoices/recurrence/ScheduleSummary.jsx",
+          "kind": "code",
+          "lang": "jsx",
+          "summary": "One button shows the schedule sentence (or Repeat this invoice when there is none), a Next chip with the first upcoming issue date, and an Active, Paused or Off pill. Tapping opens a Sheet at 90vh titled Repeat this invoice that hosts the same RecurrenceForm and closes on save.",
+          "source": "// web/src/invoices/recurrence/ScheduleSummary.jsx\nimport { useState } from 'react';\nimport { Sheet } from '../../components/Sheet.jsx';\nimport { useSchedule } from './useSchedule.js';\nimport { describeSchedule } from './describeSchedule.js';\nimport { RecurrenceForm } from './RecurrencePanel.jsx';\n\nexport function ScheduleSummary({ invoiceId, total }) {\n  const { data } = useSchedule(invoiceId);\n  const [open, setOpen] = useState(false);\n  const schedule = data?.schedule;\n  return (\n    <>\n      <button type=\"button\" className=\"schedule-summary\" onClick={() => setOpen(true)}>\n        <span className=\"schedule-summary__text\">\n          {schedule ? describeSchedule(schedule) : 'Repeat this invoice'}\n          {data?.upcoming?.[0] && <span className=\"chip\">Next: {data.upcoming[0].issueOn}</span>}\n        </span>\n        <span className={`pill pill--${schedule?.status === 'active' ? 'success' : 'neutral'}`}>{schedule?.status === 'active' ? 'Active' : schedule ? 'Paused' : 'Off'}</span>\n      </button>\n      <Sheet open={open} onClose={() => setOpen(false)} title=\"Repeat this invoice\" height=\"90vh\">\n        <RecurrenceForm invoiceId={invoiceId} total={total} onSaved={() => setOpen(false)} />\n      </Sheet>\n    </>\n  );\n}"
+        }
+      ],
+      "executorDetail": "- [ ] **Step 1: Schedule endpoints and hook**\n\n`server/src/routes/schedules.js` validates the body with a `zod` schema mirroring Plan 1's columns (weekly anchors 1–7, an end date and a count mutually exclusive). `GET` and `PUT /api/invoices/:invoiceId/schedule` return `{ schedule, upcoming: nextOccurrences(schedule, new Date(), 3) }`; `PUT` upserts on `template_invoice_id`. `POST /api/schedules/preview` returns `upcoming` for an unsaved draft. Add `schedules:read` (owner, bookkeeper) and `schedules:write` (owner) to `permissions.js`. `useSchedule.js` exports `useSchedule(invoiceId)` (the `GET` plus a `PUT` mutation that refreshes `['schedule', invoiceId]` and `['forecast']`), `usePreview(draft)` and `defaultSchedule()`; `describeSchedule(schedule)` builds the sentence both views show. Open question: can a bookkeeper pause and resume a schedule without being able to edit it? Today pausing is a `PUT` and needs `schedules:write`.\n\n- [ ] **Step 2: The panel at 1280 px**\n\nAt 1280 px the editor has line items on the left (about 840 px) and a 360 px sidebar; the panel is the third sidebar card, under \"Customer\" and \"Payment\".\n- Header row: repeat icon, \"Repeat this invoice\", an on/off switch right-aligned. Off: a muted line \"Send this invoice on a schedule.\"\n- On, top to bottom: a summary sentence on a tinted strip (\"Monthly on the 1st, starting Nov 1, 2026, until cancelled\"); a full-width segmented control \"Weekly | Monthly | Quarterly | Yearly\"; \"On\" select and \"Starts\" date side by side; an \"Ends\" radio group (\"Never\", \"On <date>\", \"After <n> invoices\"); a \"Move weekend dates to Friday\" checkbox.\n- \"Next 3 invoices\": three rows, issue date left and template total right; a weekend-shifted row adds a muted \"moved from Sat\".\n- Footer: \"Pause\" ghost button left (saved schedules only), \"Save schedule\" primary right.\n\n`RecurrencePanel` wraps `RecurrenceForm` in the sidebar card with the header switch.\n\n- [ ] **Step 3: The summary at 360 px**\n\nBelow 768 px the editor stacks into one column. The recurrence card becomes one tappable 72 px row inside 16 px gutters: repeat icon left; the summary sentence clamped to two lines with a \"Next: Mon, Nov 2\" chip under it; an \"Active\" (green) or \"Paused\" (grey) pill and a chevron on the right. Tapping opens a bottom `Sheet` at 90 % height titled \"Repeat this invoice\" with the same form in one column and \"Save schedule\" full width in a sticky footer.\n\n`InvoiceEditor.jsx` renders `RecurrencePanel` at 768 px and up, `ScheduleSummary` below; check both widths in the browser.\n\n- [ ] **Step 4: Run the tests and commit**\n\n```bash\ndocker exec ledgerline_api npx vitest run test/routes\ndocker exec ledgerline_web npx vitest run src/invoices\n```\n\n```bash\ngit add server/src/routes/schedules.js server/src/auth/permissions.js web/src/invoices\ngit commit -m \"feat(invoices): add the recurrence panel and the mobile schedule summary\" -m \"Refs LL-87\"\n```",
+      "narration": [
+        {
+          "id": "t4-recurrence-panel-mobile-schedule-p1",
+          "target": "summary",
+          "text": "Task four, recurrence panel and mobile schedule summary. The owner sets up a schedule from the invoice editor: a sidebar panel on desktop, and a tappable summary row that opens a bottom sheet on phones. Both share one form and a live preview of the next three invoices. Behind them, new routes read, save and preview schedules under new read and write permissions."
+        },
+        {
+          "id": "t4-recurrence-panel-mobile-schedule-p2",
+          "target": "interfaces",
+          "text": "Consumes next occurrences, the shared sheet component and the empty panel slot plan one left in the editor. Produces get and put routes at slash api slash invoices slash invoice I D slash schedule, a preview route at slash api slash schedules slash preview, the use schedule hook, the describe schedule sentence builder, and the recurrence panel and schedule summary components."
+        },
+        {
+          "id": "t4-recurrence-panel-mobile-schedule-p3",
+          "target": "decisions",
+          "text": "One open question. Can a bookkeeper pause and resume a schedule without being able to edit it? Today pausing is a put request, which needs the schedules write permission, and only owners hold that. Bookkeepers can read schedules but cannot pause them until product answers this yes or no question."
+        },
+        {
+          "id": "t4-recurrence-panel-mobile-schedule-p4",
+          "target": "t4-recurrence-panel-mobile-schedule-ui1",
+          "text": "Mockup one, invoice editor, recurrence panel switched on. The panel is the third sidebar card, under customer and payment. Switched off it shows only the header and the muted line, send this invoice on a schedule. Pause appears only for a saved schedule. The first preview row shows a Sunday moved back to Friday. Design exemplars: customer panel dot j s x for the sidebar card anatomy, record payment sheet dot j s x for a form inside the sheet recipe."
+        },
+        {
+          "id": "t4-recurrence-panel-mobile-schedule-p5",
+          "target": "t4-recurrence-panel-mobile-schedule-ui2",
+          "text": "Mockup two, mobile editor, schedule summary row and sheet. Below seven hundred sixty eight pixels the editor stacks into one column. Top: the summary row for an active schedule; paused shows a grey pill. Then the row with no schedule yet. Below the divider: the bottom sheet at ninety percent height, the same form in one column with save schedule full width in a sticky footer."
+        },
+        {
+          "id": "t4-recurrence-panel-mobile-schedule-p6",
+          "target": "risks",
+          "text": "Risk, an abbreviated snippet. The panel code leaves the on, starts and ends fields, the weekend checkbox and the pause button as a comment, telling the executor to copy the field markup from the account settings form. The reviewed code therefore shows only the sentence, the frequency control, the preview and the save button."
+        },
+        {
+          "id": "t4-recurrence-panel-mobile-schedule-p7",
+          "target": "t4-recurrence-panel-mobile-schedule-b1",
+          "text": "Code block one, recurrence panel dot j s x. The recurrence form keeps a local draft, seeded from the saved schedule or a default one. It renders the schedule sentence, the frequency control, the next three invoices with a moved from note, and the save button. Changing frequency resets the anchor day to one. The remaining fields are left as a comment to copy."
+        },
+        {
+          "id": "t4-recurrence-panel-mobile-schedule-p8",
+          "target": "t4-recurrence-panel-mobile-schedule-b2",
+          "text": "Code block two, schedule summary dot j s x. One button shows the schedule sentence, or repeat this invoice when there is none, a next chip with the first upcoming issue date, and an active, paused or off pill. Tapping opens a sheet at ninety percent of the viewport height that hosts the same form and closes itself on save."
+        }
+      ],
+      "sourceRange": [
+        294,
+        405
+      ],
+      "contentHash": "1e15a41bdbe90ad065cea5434cbaf6bedd02800b"
+    },
+    {
+      "id": "t5-cash-forecast-card",
+      "ordinal": 5,
+      "title": "Task 5: Cash forecast card",
+      "kind": "task",
+      "summary": "A dashboard card showing the cash expected over the next 90 days as thirteen weekly stacked bars of open and scheduled invoices. Open invoices, including scheduled drafts, land in the week they are due, and future occurrences in the week of their issue date plus payment terms. The endpoint caches per account for an hour and drops the cache when an invoice is paid.",
+      "changes": [
+        {
+          "role": "forecast service",
+          "path": "server/src/billing/forecast.js",
+          "action": "create"
+        },
+        {
+          "role": "forecast route with hourly cache",
+          "path": "server/src/routes/forecast.js",
+          "action": "create"
+        },
+        {
+          "role": "dashboard forecast card",
+          "path": "web/src/dashboard/CashForecastCard.jsx",
+          "action": "create"
+        },
+        {
+          "role": "dashboard grid: card behind the flag",
+          "path": "web/src/dashboard/Dashboard.jsx",
+          "action": "modify"
+        }
+      ],
+      "interfaces": {
+        "consumes": [
+          "nextOccurrences(schedule, from, count)",
+          "invoices.schedule_id",
+          "event invoice.paid"
+        ],
+        "produces": [
+          "buildForecast(db, accountId, from, days)",
+          "GET /api/forecast?days=90",
+          "<CashForecastCard>"
+        ]
+      },
+      "decisionIds": [],
+      "ui": [
+        {
+          "id": "t5-cash-forecast-card-ui1",
+          "title": "Dashboard: cash forecast card",
+          "width": 720,
+          "notes": "About 720 px wide in the first row of the 1280 px dashboard grid, beside the existing Outstanding card, not full width. The tooltip on the second bar is the native SVG title shown on hover. Empty state: \"No expected income yet.\" with a \"Set up a recurring invoice\" link in place of the chart. At 360 px the card takes the full column and the tiles stack. Header, legend, tiles and empty state copy the markup of web/src/dashboard/OutstandingCard.jsx.",
+          "html": "<div style=\"font-family:system-ui,-apple-system,sans-serif;color:#1f2328;font-size:14px;line-height:1.4;box-sizing:border-box;width:720px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px\">\n<div style=\"display:flex;justify-content:space-between;align-items:flex-start\"><div><span style=\"font-weight:600;font-size:16px\">Cash forecast</span> <span style=\"color:#6b7280\">next 90 days</span></div><div style=\"text-align:right\"><div style=\"font-size:28px;font-weight:700;font-variant-numeric:tabular-nums\">$40,750.00</div><div style=\"color:#6b7280;font-size:12px\">expected</div></div></div>\n<div style=\"display:flex;gap:16px;margin-top:8px;font-size:12px\"><span><span style=\"display:inline-block;width:10px;height:10px;background:#4f46e5;border-radius:2px\"></span> Open invoices</span><span><span style=\"display:inline-block;width:10px;height:10px;background:#c7d2fe;border-radius:2px\"></span> Scheduled</span></div>\n<div style=\"position:relative;height:224px;margin-top:16px\"><div style=\"position:absolute;left:40px;right:0;bottom:24px;border-top:1px solid #f3f4f6\"><span style=\"position:absolute;left:-40px;top:-8px;font-size:11px;color:#6b7280\">$0</span></div><div style=\"position:absolute;left:40px;right:0;bottom:74px;border-top:1px solid #f3f4f6\"><span style=\"position:absolute;left:-40px;top:-8px;font-size:11px;color:#6b7280\">$2k</span></div><div style=\"position:absolute;left:40px;right:0;bottom:124px;border-top:1px solid #f3f4f6\"><span style=\"position:absolute;left:-40px;top:-8px;font-size:11px;color:#6b7280\">$4k</span></div><div style=\"position:absolute;left:40px;right:0;bottom:174px;border-top:1px solid #f3f4f6\"><span style=\"position:absolute;left:-40px;top:-8px;font-size:11px;color:#6b7280\">$6k</span></div><div style=\"position:absolute;left:40px;right:0;bottom:224px;border-top:1px solid #f3f4f6\"><span style=\"position:absolute;left:-40px;top:-8px;font-size:11px;color:#6b7280\">$8k</span></div><div style=\"position:absolute;left:44px;bottom:24px;display:flex;align-items:flex-end\"><div style=\"position:relative;width:32px;height:200px;margin-right:8px\">\n<div style=\"position:absolute;bottom:0;width:32px;height:150px;background:#4f46e5;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;bottom:150px;width:32px;height:0px;background:#c7d2fe;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;top:204px;left:-8px;width:48px;text-align:center;font-size:11px;color:#6b7280\">Oct 8</div></div><div style=\"position:relative;width:32px;height:200px;margin-right:8px\">\n<div style=\"position:absolute;bottom:0;width:32px;height:30px;background:#4f46e5;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;bottom:30px;width:32px;height:86.25px;background:#c7d2fe;border-radius:2px 2px 0 0\"></div>\n</div><div style=\"position:relative;width:32px;height:200px;margin-right:8px\">\n<div style=\"position:absolute;bottom:0;width:32px;height:60px;background:#4f46e5;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;bottom:60px;width:32px;height:40px;background:#c7d2fe;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;top:204px;left:-8px;width:48px;text-align:center;font-size:11px;color:#6b7280\">Oct 22</div></div><div style=\"position:relative;width:32px;height:200px;margin-right:8px\">\n<div style=\"position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;bottom:0px;width:32px;height:31.25px;background:#c7d2fe;border-radius:2px 2px 0 0\"></div>\n</div><div style=\"position:relative;width:32px;height:200px;margin-right:8px\">\n<div style=\"position:absolute;bottom:0;width:32px;height:10px;background:#4f46e5;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;bottom:10px;width:32px;height:130px;background:#c7d2fe;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;top:204px;left:-8px;width:48px;text-align:center;font-size:11px;color:#6b7280\">Nov 5</div></div><div style=\"position:relative;width:32px;height:200px;margin-right:8px\">\n<div style=\"position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;bottom:0px;width:32px;height:40px;background:#c7d2fe;border-radius:2px 2px 0 0\"></div>\n</div><div style=\"position:relative;width:32px;height:200px;margin-right:8px\">\n<div style=\"position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;bottom:0px;width:32px;height:50px;background:#c7d2fe;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;top:204px;left:-8px;width:48px;text-align:center;font-size:11px;color:#6b7280\">Nov 19</div></div><div style=\"position:relative;width:32px;height:200px;margin-right:8px\">\n<div style=\"position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;bottom:0px;width:32px;height:10px;background:#c7d2fe;border-radius:2px 2px 0 0\"></div>\n</div><div style=\"position:relative;width:32px;height:200px;margin-right:8px\">\n<div style=\"position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;bottom:0px;width:32px;height:160px;background:#c7d2fe;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;top:204px;left:-8px;width:48px;text-align:center;font-size:11px;color:#6b7280\">Dec 3</div></div><div style=\"position:relative;width:32px;height:200px;margin-right:8px\">\n<div style=\"position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;bottom:0px;width:32px;height:40px;background:#c7d2fe;border-radius:2px 2px 0 0\"></div>\n</div><div style=\"position:relative;width:32px;height:200px;margin-right:8px\">\n<div style=\"position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;bottom:0px;width:32px;height:31.25px;background:#c7d2fe;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;top:204px;left:-8px;width:48px;text-align:center;font-size:11px;color:#6b7280\">Dec 17</div></div><div style=\"position:relative;width:32px;height:200px;margin-right:8px\">\n<div style=\"position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;bottom:0px;width:32px;height:10px;background:#c7d2fe;border-radius:2px 2px 0 0\"></div>\n</div><div style=\"position:relative;width:32px;height:200px;margin-right:8px\">\n<div style=\"position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;bottom:0px;width:32px;height:140px;background:#c7d2fe;border-radius:2px 2px 0 0\"></div>\n<div style=\"position:absolute;top:204px;left:-8px;width:48px;text-align:center;font-size:11px;color:#6b7280\">Dec 31</div></div></div><div style=\"position:absolute;left:96px;top:40px;background:#111827;color:#fff;font-size:12px;border-radius:6px;padding:6px 8px;white-space:nowrap\">Week of Oct 15<br>Open $1,200.00<br>Scheduled $3,450.00</div></div>\n<div style=\"display:flex;gap:12px;margin-top:16px\"><div style=\"flex:1;background:#f9fafb;border-radius:8px;padding:10px 12px\"><div style=\"font-size:12px;color:#6b7280\">Next 30 days</div><div style=\"font-weight:600;font-variant-numeric:tabular-nums\">$15,900.00</div></div><div style=\"flex:1;background:#f9fafb;border-radius:8px;padding:10px 12px\"><div style=\"font-size:12px;color:#6b7280\">31–60 days</div><div style=\"font-weight:600;font-variant-numeric:tabular-nums\">$9,600.00</div></div><div style=\"flex:1;background:#f9fafb;border-radius:8px;padding:10px 12px\"><div style=\"font-size:12px;color:#6b7280\">61–90 days</div><div style=\"font-weight:600;font-variant-numeric:tabular-nums\">$15,250.00</div></div></div>\n</div>"
+        }
+      ],
+      "risks": [],
+      "blocks": [
+        {
+          "id": "t5-cash-forecast-card-b1",
+          "role": "server/src/billing/forecast.js",
+          "kind": "code",
+          "lang": "js",
+          "summary": "Builds weekly buckets from the start date and adds sent, overdue and scheduled-draft invoices by due date, clamping anything overdue into the first week. Then it walks up to 60 future occurrences per active schedule and adds the template total in the week of issue date plus payment terms. It returns the weeks and the total in cents.",
+          "source": "// server/src/billing/forecast.js\nimport { nextOccurrences } from './recurrence.js';\n\nconst plusDays = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);\nexport async function buildForecast(db, accountId, from, days) {\n  const [start, end] = [from.toISOString().slice(0, 10), plusDays(from.toISOString().slice(0, 10), days)];\n  const weeks = Array.from({ length: Math.ceil(days / 7) }, (_, i) => ({ weekOf: plusDays(start, i * 7), openCents: 0, scheduledCents: 0 }));\n  const bucket = (iso) => weeks[Math.max(0, Math.floor((Date.parse(iso) - Date.parse(start)) / (7 * 86400000)))];\n  const open = await db('invoices').where({ account_id: accountId }).andWhere('due_on', '<', end)\n    .andWhere((q) => q.whereIn('status', ['sent', 'overdue']).orWhere((d) => d.where('status', 'draft').whereNotNull('schedule_id')));\n  for (const inv of open) bucket(inv.due_on).openCents += inv.balance_cents;\n  const schedules = await db('schedules as s').join('invoices as t', 't.id', 's.template_invoice_id')\n    .where({ 's.account_id': accountId, 's.status': 'active' }).select('s.*', 't.total_cents', 't.payment_terms_days');\n  for (const s of schedules) {\n    for (const o of nextOccurrences(s, from, 60).filter((x) => x.issueAt > from.toISOString())) {\n      const expectedOn = plusDays(o.issueOn, s.payment_terms_days);\n      if (expectedOn >= end) break;\n      bucket(expectedOn).scheduledCents += s.total_cents;\n    }\n  }\n  return { weeks, totalCents: weeks.reduce((sum, w) => sum + w.openCents + w.scheduledCents, 0) };\n}"
+        }
+      ],
+      "executorDetail": "- [ ] **Step 1: Forecast service**\n\nOpen invoices land in the week of their `due_on`; drafts with a `schedule_id` count as open; future occurrences land in the week of `issueOn + payment_terms_days`. `GET /api/forecast` caches the result per account for an hour and drops the cache on `invoice.paid`.\n\n- [ ] **Step 2: The card at 1280 px**\n\nThe dashboard at 1280 px is a grid; the forecast card is about 720 px wide, in the first row beside the existing \"Outstanding\" card, not full width.\n- Header row: \"Cash forecast\" with a muted \"next 90 days\" on the left; the total on the right in large tabular figures over a muted \"expected\".\n- Legend: \"Open invoices\" (solid) and \"Scheduled\" (lighter tint of the same hue).\n- Chart, 200 px tall: thirteen stacked weekly bars, open at the bottom; week-start labels (\"Oct 12\") under every other bar; hovering a bar shows the week and both amounts.\n- Footer: three tiles, \"Next 30 days\", \"31–60 days\", \"61–90 days\".\n- Empty state: \"No expected income yet.\" with a \"Set up a recurring invoice\" link.\n\n`CashForecastCard` queries `['forecast', 90]` and draws the bars as one SVG `<g>` per week holding two `<rect>`s scaled to the busiest week, with a `<title>` for the hover text. Header, legend, tiles and empty state: copy the markup of `web/src/dashboard/OutstandingCard.jsx`. Add the card to `Dashboard.jsx` behind the `recurring_billing` flag; at 360 px it takes the full column and the tiles stack.\n\n- [ ] **Step 3: Run the tests and commit**\n\n```bash\ndocker exec ledgerline_api npx vitest run test/billing\ndocker exec ledgerline_web npx vitest run src/dashboard\n```\n\n```bash\ngit add server/src/billing/forecast.js web/src/dashboard\ngit commit -m \"feat(dashboard): add the 90-day cash forecast card\" -m \"Refs LL-87\"\n```",
+      "narration": [
+        {
+          "id": "t5-cash-forecast-card-p1",
+          "target": "summary",
+          "text": "Task five, cash forecast card. A dashboard card shows the cash expected over the next ninety days as thirteen weekly stacked bars. Open invoices, including scheduled drafts, land in the week they are due; future occurrences land in the week of their issue date plus payment terms. The endpoint caches each account for an hour and drops the cache when an invoice is paid."
+        },
+        {
+          "id": "t5-cash-forecast-card-p2",
+          "target": "interfaces",
+          "text": "Consumes next occurrences from task one, the invoice schedule I D column from task two, and the invoice paid event from task three, which clears the cache. Produces build forecast, which buckets an account expected cash by week, the forecast route at slash api slash forecast with a days parameter of ninety, and the cash forecast card component."
+        },
+        {
+          "id": "t5-cash-forecast-card-p3",
+          "target": "t5-cash-forecast-card-ui1",
+          "text": "Mockup, dashboard cash forecast card. About seven hundred twenty pixels wide in the first row of the twelve eighty pixel dashboard grid, beside the existing outstanding card, not full width. The tooltip on the second bar is the native S V G title shown on hover. Empty state: no expected income yet, with a set up a recurring invoice link in place of the chart. At three sixty pixels the card takes the full column and the tiles stack. Header, legend, tiles and empty state copy the markup of outstanding card dot j s x."
+        },
+        {
+          "id": "t5-cash-forecast-card-p4",
+          "target": "t5-cash-forecast-card-b1",
+          "text": "Code block one, forecast dot j s. Builds weekly buckets from the start date and adds open invoices, including scheduled drafts, by due date, clamping anything overdue into the first week. Then, for each active schedule, it walks up to sixty future occurrences and adds the template total in the week of the issue date plus payment terms. It returns the weeks and a total in cents."
+        }
+      ],
+      "sourceRange": [
+        407,
+        469
+      ],
+      "contentHash": "308ba1bd4baa7786161c59eb69d73686e1c19a29"
+    },
+    {
+      "id": "t99-wrapup",
+      "ordinal": 99,
+      "title": "Verification and hand-over",
+      "kind": "wrapup",
+      "summary": "The closing checks before merge: both suites after a full migration round-trip, lint, and manual checks on the dev stack that a schedule saves at both widths, two workers produce one invoice, a replayed webhook records one payment, and the October DST change keeps the 06:00 issue time. It ends with the staging permission grant and the merge request listing items awaiting product sign-off.",
+      "changes": [],
+      "interfaces": {
+        "consumes": [],
+        "produces": []
+      },
+      "decisionIds": [],
+      "ui": [],
+      "risks": [],
+      "blocks": [],
+      "executorDetail": "- Run both full suites in Docker: `docker exec ledgerline_api npx vitest run` and `docker exec ledgerline_web npx vitest run`, after `npx knex migrate:rollback --all` and `migrate:latest` to prove the migrations round-trip.\n- Run `npm run lint:fix` at the repository root and review any diff it leaves.\n- Open an invoice at 1280 px and at 360 px and save a monthly schedule from each layout; the dashboard forecast shows the new schedule's bars.\n- On the dev stack, scale to two workers (`docker compose up -d --scale ledgerline_worker=2`) and check that one weekly schedule starting today yields exactly one invoice after the next tick.\n- Pay that invoice through its Tollgate link, then resend the same event from the Tollgate dashboard and check that one payment row exists.\n- Set the account timezone to `Europe/Lisbon` and check that the 2026-10-25 DST change leaves the issue time at 06:00 local.\n- Run `npm run perms:grant -- recurring-billing` against staging (LL-61) and sign in as a real bookkeeper: the schedule and forecast endpoints answer 200, not 403.\n- Push the branch and open the merge request with `glab mr create --target-branch main --title \"Recurring billing (LL-87)\"`, its description closing LL-87 and listing the items still awaiting product sign-off.",
+      "narration": [
+        {
+          "id": "t99-wrapup-p1",
+          "target": "summary",
+          "text": "Verification and hand over. Both test suites run in Docker after rolling every migration back and forward again, then lint. By hand on the dev stack: save a schedule at both widths, scale to two workers and see exactly one invoice, replay a paid webhook and see one payment, and confirm the October daylight saving change keeps six in the morning. Then grant staging permissions and open the merge request."
+        }
+      ],
+      "sourceRange": [
+        471,
+        480
+      ],
+      "contentHash": "68899138e887b7b967dcbddf8f2527711e310e32"
+    }
+  ]
+}

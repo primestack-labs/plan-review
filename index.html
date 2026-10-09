@@ -1,0 +1,1558 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recurring Billing Plan 2/2 — Schedules, generation, payment links, editor, cash forecast</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.4.0/mermaid.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/15.0.7/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>/* template/page.css */
+:root {
+  color-scheme: light;
+  --bg: #fafafa; --fg: #1b1b1f; --muted: #6b6b76; --line: #dcdce3; --card: #fff;
+  --accent: #6d28d9; --approved: #15803d; --commented: #b45309; --questioned: #b91c1c; --changed: #1d4ed8; --speak: #ede9fe; --mark: rgba(109, 40, 217, .22); --ring: #c9c9d3;
+}
+:root[data-theme=dark] { color-scheme: dark; --bg: #131316; --fg: #ececf1; --muted: #9a9aa6; --line: #2c2c33; --card: #1b1b20; --speak: #2e1065;
+    --accent: #a78bfa; --approved: #4ade80; --commented: #fbbf24; --questioned: #f87171; --changed: #60a5fa; --mark: rgba(167, 139, 250, .45); --ring: #42424c; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme=light]) { color-scheme: dark; --bg: #131316; --fg: #ececf1; --muted: #9a9aa6; --line: #2c2c33; --card: #1b1b20; --speak: #2e1065;
+    --accent: #a78bfa; --approved: #4ade80; --commented: #fbbf24; --questioned: #f87171; --changed: #60a5fa; --mark: rgba(167, 139, 250, .45); --ring: #42424c; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, sans-serif; padding: 0 16px 96px; }
+main { max-width: 900px; margin: 0 auto; }
+h1 { font-size: 16px; margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+h2 { font-size: 20px; margin: 0; }
+h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 4px; }
+a { color: var(--accent); }
+code, pre { font: 13px/1.45 ui-monospace, Menlo, monospace; }
+pre { overflow-x: auto; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+ul { margin: 0; padding-left: 20px; }
+dl { margin: 0; } dt { font-weight: 600; margin-top: 6px; } dd { margin: 0 0 4px; }
+.none { color: var(--muted); margin: 0; }
+button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--card); color: var(--fg); border-radius: 6px; padding: 4px 10px; }
+button:disabled { opacity: .5; cursor: default; }
+button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+
+/* code highlighting */
+.hljs { color: var(--fg); }
+.hljs-comment, .hljs-quote { color: var(--muted); font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-built_in, .hljs-type, .hljs-doctag { color: var(--accent); }
+.hljs-string, .hljs-attr, .hljs-template-tag, .hljs-addition, .hljs-selector-attr { color: var(--approved); }
+.hljs-number, .hljs-literal, .hljs-regexp, .hljs-link { color: var(--commented); }
+.hljs-title, .hljs-section, .hljs-name, .hljs-selector-id, .hljs-selector-class { color: var(--changed); }
+.hljs-variable, .hljs-template-variable, .hljs-deletion, .hljs-subst { color: var(--questioned); }
+.hljs-meta, .hljs-symbol, .hljs-bullet, .hljs-punctuation { color: var(--muted); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
+
+/* sticky header */
+.bar { position: sticky; top: 0; z-index: 10; background: var(--card); border-bottom: 1px solid var(--line); margin: 0 -16px; padding: 8px 16px; }
+.row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.round { font-size: 12px; color: var(--muted); }
+.transport { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.transport > button { font-size: 16px; line-height: 20px; padding: 3px 9px; min-width: 36px; }
+.transport > button svg { display: block; width: 20px; height: 20px; margin: 0 auto; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.transport > button svg text { fill: currentColor; stroke: none; font: 700 8px/1 system-ui, sans-serif; text-anchor: middle; }
+.transport input[type=range] { width: 90px; vertical-align: middle; }
+.status { font-size: 13px; margin-top: 6px; flex-wrap: nowrap; justify-content: flex-end; }
+#now { min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#clock { color: var(--muted); font-variant-numeric: tabular-nums; }
+.progress { display: flex; gap: 2px; height: 10px; margin: 8px 0; }
+.seg { flex-grow: 1; padding: 0; border: 0; border-radius: 2px; background: var(--line); overflow: hidden; position: relative; cursor: pointer; transition: transform .15s, filter .15s; }
+.seg:hover { transform: scaleY(1.8); filter: brightness(1.5); }
+.seg.intro { flex-grow: 0; flex-basis: 24px; background: var(--line); }
+.chapters { display: flex; gap: 2px; margin: 0 0 6px; }
+.chapter { flex-grow: 1; flex-basis: 0; min-width: 0; padding: 0 2px; border: 0; border-radius: 3px; background: transparent; color: var(--muted); font-size: 11px; line-height: 16px; text-align: center; overflow: hidden; }
+.chapter.intro { flex-grow: 0; flex-basis: 24px; }
+.chapter:hover { background: var(--line); color: var(--fg); }
+.theme { display: inline-flex; margin-right: auto; }
+.theme button { padding: 2px 8px; border-radius: 0; margin-left: -1px; font-size: 13px; line-height: 18px; color: var(--muted); }
+.theme button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.theme button:last-child { border-radius: 0 6px 6px 0; }
+.theme button.active { color: var(--fg); background: var(--line); box-shadow: none; border-color: var(--line); }
+.stop-at-end { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+#overview h2 .play, #decisions h2 .play { padding: 2px 8px; font-size: 14px; vertical-align: middle; margin-right: 6px; }
+#overview dd, .decision { transition: background .4s ease, box-shadow .4s ease; border-radius: 6px; }
+#overview dd.speaking, .decision.speaking { background: var(--speak); box-shadow: 0 0 0 2px var(--accent); }
+.seg .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent); opacity: .9; transition: width .3s ease; }
+.seg[data-playing] { transform: scaleY(1.8); animation: seg-pulse 1.4s ease-in-out infinite; }
+@keyframes seg-pulse { 50% { filter: brightness(1.6); } }
+.seg[data-verdict=approved] { background: color-mix(in srgb, var(--approved) 45%, var(--line)); }
+.seg[data-verdict=approved] .fill { background: var(--approved); }
+.seg[data-verdict=commented] { background: color-mix(in srgb, var(--commented) 45%, var(--line)); }
+.seg[data-verdict=commented] .fill { background: var(--commented); }
+.counters { font-size: 12px; color: var(--muted); }
+.budget { margin-left: auto; font-size: 12px; color: var(--muted); }
+
+/* overview, decisions, constraints */
+#overview, #decisions, #constraints { margin: 20px 0; }
+.mermaid { background: transparent; border: 0; margin: 0; display: inline-block; }
+.taskmap { border: 1px solid var(--line); border-radius: 8px; background: var(--card); overflow: hidden; }
+.taskmap-tools { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.taskmap-tools .hint { margin-left: auto; }
+.taskmap-view { position: relative; height: 480px; overflow: hidden; cursor: grab; touch-action: none; user-select: none; }
+.taskmap-view:active { cursor: grabbing; }
+.taskmap-canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
+.taskmap .mermaid svg { max-width: none !important; }
+.taskmap:fullscreen { background: var(--bg); }
+.taskmap:fullscreen .taskmap-view { height: calc(100vh - 34px); }
+.decision { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; margin: 8px 0; background: var(--card); }
+.decision .kind { font-size: 11px; text-transform: uppercase; color: var(--questioned); }
+.decision p { margin: 0; grid-column: 2; }
+.decision a { grid-column: 2; font-size: 13px; }
+.decision .resolution { grid-column: 2; display: flex; gap: 12px; flex-wrap: wrap; }
+.decision .resolution input[type=text] { flex: 1; min-width: 200px; font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
+.decision[data-resolved=true] .kind { color: var(--approved); }
+
+/* cards */
+.card { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 10px; padding: 14px 18px; margin: 18px 0; transition: box-shadow .35s ease, border-color .35s ease; }
+.card[data-verdict=approved] { border-left-color: var(--approved); }
+.card[data-verdict=commented] { border-left-color: var(--commented); }
+.card[data-changed=true] { border-left-color: var(--changed); }
+.card[data-current=true] { box-shadow: 0 0 0 2px var(--ring), 0 6px 24px rgba(0, 0, 0, .12); }
+.card > header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; cursor: pointer; }
+.card > header .play { padding: 2px 8px; }
+.card[data-heard=true] > header .play { color: var(--approved); border-color: var(--approved); }
+.card[data-collapsed=true] > :not(header) { display: none; }
+.badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; color: var(--card); background: var(--changed); }
+.sub { margin-top: 12px; padding: 4px 8px; border-radius: 6px; transition: background .4s ease, box-shadow .4s ease; }
+.block, .mockup { transition: background .4s ease, box-shadow .4s ease; }
+.sub.speaking, .block.speaking, .mockup.speaking { background: var(--speak); box-shadow: 0 0 0 2px var(--accent); }
+.block { border: 1px solid var(--line); border-radius: 6px; margin: 6px 0; padding: 6px 10px; }
+.block summary { cursor: pointer; }
+.block .role { font-weight: 600; margin-right: 6px; }
+.block .behaviors { margin: 8px 0; font-size: 14px; }
+.sub-executor { border: 1px solid var(--line); border-left: 3px solid var(--muted); background: var(--bg); padding: 6px 12px; }
+.sub-executor summary { cursor: pointer; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
+.md { font-size: 13.5px; color: var(--fg); margin-top: 8px; }
+.md pre { background: var(--card); }
+.mockup { margin: 8px 0; padding: 4px 8px; border-radius: 6px; }
+.mockup figcaption { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.mockup .frame-fit { overflow: hidden; }
+.mockup .frame { box-sizing: border-box; transform-origin: top left; cursor: zoom-in; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: #fff; color: #111; }
+#lightbox { border: 0; padding: 0; background: transparent; max-width: none; max-height: none; overflow: visible; }
+#lightbox::backdrop { background: rgba(0,0,0,.72); }
+#lightbox .frame-fit { overflow: hidden; }
+#lightbox .frame { box-sizing: border-box; transform-origin: top left; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: #fff; color: #111; }
+#lightbox-close { position: fixed; top: 12px; right: 16px; z-index: 1; font-size: 22px; line-height: 1; width: 36px; height: 36px; border-radius: 18px; border: 0; background: var(--card); color: var(--fg); cursor: pointer; }
+.mockup .notes { font-size: 13px; color: var(--muted); }
+.threads, .comments { margin-top: 12px; display: grid; gap: 6px; }
+.thread, .pin { border: 1px dashed var(--line); border-radius: 6px; padding: 6px 10px; font-size: 14px; }
+.pin { cursor: pointer; }
+.pin:hover { border-style: solid; }
+.pin { border-color: var(--commented); }
+.pin .scope { font-size: 11px; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; }
+::highlight(review-selection) { background: var(--mark); }
+.thread blockquote, .pin q { color: var(--muted); font-style: italic; margin: 0; }
+.thread .reply { margin: 4px 0 0; }
+.thread[data-status=rejected] { border-color: var(--questioned); }
+.thread[data-status=accepted] { border-color: var(--approved); }
+.thread[data-status=clarified] { border-color: var(--changed); }
+.pin .remove { float: right; padding: 0 6px; }
+.verdict { display: flex; gap: 10px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.verdict button { flex: 1; padding: 10px 12px; font-weight: 600; border-width: 2px; }
+.verdict button[data-verdict=approved] { border-color: var(--approved); color: var(--approved); }
+.verdict button[data-verdict=commented] { border-color: var(--commented); color: var(--commented); }
+.verdict button[data-verdict=approved].active { background: var(--approved); color: var(--card); box-shadow: none; }
+.verdict button[data-verdict=commented].active { background: var(--commented); color: var(--card); box-shadow: none; }
+
+/* popover, help, footer */
+#popover { position: absolute; z-index: 20; width: 480px; max-width: calc(100vw - 32px); background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.18); display: grid; gap: 8px; opacity: 0; transform: translateY(-6px); transition: opacity .18s ease, transform .18s ease; }
+#popover.open { opacity: 1; transform: none; }
+#popover[hidden] { display: none; }
+#popover textarea { font: inherit; width: 100%; min-height: 84px; max-height: 40vh; resize: vertical; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); padding: 6px; }
+#popover .actions { display: flex; align-items: center; gap: 8px; }
+#popover .actions .spacer { flex: 1; }
+
+.foot { position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; display: flex; align-items: center; gap: 14px; padding: 10px 16px; background: var(--card); border-top: 1px solid var(--line); font-size: 13px; }
+.foot #blockers { color: var(--muted); flex: 1; }
+.foot #submit { background: var(--accent); color: #fff; border-color: var(--accent); padding: 6px 16px; }
+.foot #blockers.done { color: var(--approved); font-weight: 600; }
+@media (max-width: 600px) { .transport label { display: none; } .budget { display: none; } }
+</style>
+<script>{ const t = document.cookie.match(/(?:^|; )plan-review-theme=(light|dark)/)?.[1]; if (t) document.documentElement.dataset.theme = t; }</script>
+</head>
+<body>
+<style>
+.demo-banner { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin: 0 -16px; padding: 8px 16px; font-size: 13px; color: var(--fg); background: var(--speak); border-bottom: 1px solid var(--line); }
+.demo-banner strong { color: var(--accent); }
+.demo-banner .links { margin-left: auto; display: flex; gap: 14px; }
+#demo-submission { width: min(760px, calc(100vw - 32px)); max-height: calc(100vh - 48px); border: 1px solid var(--line); border-radius: 10px; padding: 18px 22px; color: var(--fg); background: var(--card); }
+#demo-submission::backdrop { background: rgba(0, 0, 0, .55); }
+#demo-submission h2 { margin: 0 0 8px; font-size: 18px; }
+#demo-submission p { margin: 0 0 12px; font-size: 14px; color: var(--muted); }
+#demo-submission pre { max-height: 50vh; overflow: auto; padding: 10px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); font-size: 12px; }
+#demo-submission .actions { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+#demo-submission .actions a { padding: 6px 12px; border: 1px solid var(--accent); border-radius: 6px; text-decoration: none; font-size: 14px; }
+</style>
+<div class="demo-banner">
+  <span><strong>plan-review demo.</strong> A Claude Code plugin that narrates an implementation plan and collects your review. This plan and its product are fictional. Approvals, comments and decisions stay in this browser; Submit shows the JSON Claude would receive.</span>
+  <span class="links"><a href="https://github.com/primestack-labs/plan-review">GitHub</a><a href="#" id="demo-reset">Reset the demo</a></span>
+</div>
+<header class="bar" id="bar">
+  <div class="row">
+    <h1>Recurring Billing Plan 2/2 — Schedules, generation, payment links, editor, cash forecast</h1><span class="round">Round 1</span>
+    <div class="transport">
+      <button id="prev" title="Previous section (Shift+↑)">⏮</button>
+      <button id="back" title="Back 15 seconds (Shift+←)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><text x="12.5" y="15.5">15</text></svg></button>
+      <button id="toggle" title="Play or pause (Space) · Start the section over (Shift+Space)">▶</button>
+      <button id="fwd" title="Forward 15 seconds (Shift+→)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><text x="11.5" y="15.5">15</text></svg></button>
+      <button id="next" title="Next section (Shift+↓)">⏭</button>
+      <label class="stop-at-end"><input id="stop-at-end" type="checkbox"> Stop at section end</label>
+    </div>
+  </div>
+  <div class="row status">
+    <div class="theme" id="theme" role="radiogroup" aria-label="Theme"><button data-theme="system" title="Theme: follow the system">◐</button><button data-theme="light" title="Theme: light">☀</button><button data-theme="dark" title="Theme: dark">☾</button></div>
+    <label class="transport" title="Slower (Alt+←) · Faster (Alt+→)">Speed <input id="speed" type="range" min="0.8" max="2" step="0.1" value="1"><span id="speed-value">1.0×</span></label>
+    <span id="now">Not playing</span>
+    <span id="clock">0:00 / 0:00</span>
+  </div>
+  <div class="progress" id="progress"><button class="seg intro" data-section="overview" style="flex-grow:101.3" title="Overview"><span class="fill"></span></button><button class="seg intro" data-section="decisions" style="flex-grow:117.10000000000001" title="Decisions needed"><span class="fill"></span></button><button class="seg" data-section="t0-preamble" style="flex-grow:71.75" title="Context"><span class="fill"></span></button><button class="seg" data-section="t1-recurrence-engine" style="flex-grow:131.8" title="Task 1: Recurrence engine"><span class="fill"></span></button><button class="seg" data-section="t2-invoice-generation-job" style="flex-grow:135.075" title="Task 2: Invoice generation job"><span class="fill"></span></button><button class="seg" data-section="t3-payment-links-tollgate-webhook" style="flex-grow:112.00000000000001" title="Task 3: Payment links and the Tollgate webhook"><span class="fill"></span></button><button class="seg" data-section="t4-recurrence-panel-mobile-schedule" style="flex-grow:191.125" title="Task 4: Recurrence panel and mobile schedule summary"><span class="fill"></span></button><button class="seg" data-section="t5-cash-forecast-card" style="flex-grow:109.14999999999999" title="Task 5: Cash forecast card"><span class="fill"></span></button><button class="seg" data-section="t99-wrapup" style="flex-grow:27.025" title="Verification and hand-over"><span class="fill"></span></button></div>
+  <div class="chapters" id="chapters"><button class="chapter intro" data-section="overview" style="flex-grow:101.3" title="Overview">Ov</button><button class="chapter intro" data-section="decisions" style="flex-grow:117.10000000000001" title="Decisions needed">Dec</button><button class="chapter" data-section="t0-preamble" style="flex-grow:71.75" title="Context">P</button><button class="chapter" data-section="t1-recurrence-engine" style="flex-grow:131.8" title="Task 1: Recurrence engine">T1</button><button class="chapter" data-section="t2-invoice-generation-job" style="flex-grow:135.075" title="Task 2: Invoice generation job">T2</button><button class="chapter" data-section="t3-payment-links-tollgate-webhook" style="flex-grow:112.00000000000001" title="Task 3: Payment links and the Tollgate webhook">T3</button><button class="chapter" data-section="t4-recurrence-panel-mobile-schedule" style="flex-grow:191.125" title="Task 4: Recurrence panel and mobile schedule summary">T4</button><button class="chapter" data-section="t5-cash-forecast-card" style="flex-grow:109.14999999999999" title="Task 5: Cash forecast card">T5</button><button class="chapter" data-section="t99-wrapup" style="flex-grow:27.025" title="Verification and hand-over">W</button></div>
+  <div class="row counters">
+    <span id="count-approved">0 approved</span><span id="count-commented">0 commented</span><span id="count-decisions">0 open decisions</span>
+    <span class="budget">read 6 min · listen 17 min</span>
+  </div>
+</header>
+<main>
+<section id="overview">
+  <h2><button class="play" data-section="overview" title="Play the overview">▶</button> Overview</h2>
+  <dl>
+    <dt>Goal</dt><dd id="overview-goal">Turn the schedules that Plan 1 stores into money: Ledgerline issues each recurring invoice on time and never twice, gives every invoice a card-payment link that marks it paid, lets the owner set up a schedule from the invoice editor on desktop and phone, and shows the next 90 days of expected cash on the dashboard.</dd>
+    <dt>Architecture</dt><dd id="overview-architecture">A pure recurrence engine computes occurrences in the schedule&#39;s timezone and is the only place calendar rules live. An hourly BullMQ job materialises due invoices behind a database unique index, so a second worker or a retry is a no-op. Payments go out through the existing Tollgate adapter and come back through one signed webhook that records the payment and emits invoice.paid. The web side adds the recurrence panel to the invoice editor and a forecast card to the dashboard, both on TanStack Query.</dd>
+    <dt>Tech stack</dt><dd id="overview-techStack">Node 22, Express 5, Knex on PostgreSQL 16, BullMQ on Redis 7, date-fns-tz, zod, React 19 + Vite + TanStack Query v5 in web/, Vitest on both sides, Docker Compose.</dd>
+    <dt>Spec</dt><dd><code>docs/superpowers/specs/2026-09-14-recurring-billing-design.md, sections &quot;Recurrence rules&quot;, &quot;Generation and idempotency&quot;, &quot;Payment links and webhooks&quot;, &quot;Editor and mobile UI&quot; and &quot;Cash forecast&quot;.</code></dd>
+    <dt>Plan</dt><dd><code>samples/2026-10-08-ledgerline-recurring-billing.md</code></dd>
+  </dl>
+  <div id="overview-taskMap"><div class="taskmap" id="taskmap"><div class="taskmap-tools"><button data-taskmap="fit" title="Fit the diagram to the frame">Fit</button><button data-taskmap="full" title="Toggle fullscreen">⛶ Fullscreen</button><span class="hint">ctrl + wheel or pinch to zoom · drag to pan</span></div><div class="taskmap-view"><div class="taskmap-canvas"><pre class="mermaid">flowchart LR
+  t1_recurrence_engine[&quot;Recurrence engine&quot;]
+  t2_invoice_generation_job[&quot;Invoice generation&quot;]
+  t3_payment_links_tollgate_webhook[&quot;Payment links&quot;]
+  t4_recurrence_panel_mobile_schedule[&quot;Recurrence panel&quot;]
+  t5_cash_forecast_card[&quot;Cash forecast&quot;]
+  t1_recurrence_engine --&gt;|nextOccurrences| t2_invoice_generation_job
+  t1_recurrence_engine --&gt;|nextOccurrences| t4_recurrence_panel_mobile_schedule
+  t1_recurrence_engine --&gt;|nextOccurrences| t5_cash_forecast_card
+  t2_invoice_generation_job --&gt;|invoices.schedule_id| t5_cash_forecast_card
+  t3_payment_links_tollgate_webhook --&gt;|invoice.paid| t5_cash_forecast_card</pre></div></div></div></div>
+</section>
+<section id="decisions"><h2><button class="play" data-section="decisions" title="Play the decisions">▶</button> Decisions needed</h2><div class="decision" id="decision-d1" data-decision="d1" data-kind="assumption">
+    <span class="kind">assumption</span>
+    <p>Plan 1&#39;s schedules.timezone always holds a valid IANA name; rows imported by its migration script were never re-validated.</p>
+    <a href="#t1-recurrence-engine">Task 1: Recurrence engine</a>
+    <div class="resolution"><input type="text" name="decision-d1" value="" placeholder="Your resolution"></div>
+  </div><div class="decision" id="decision-d2" data-decision="d2" data-kind="confirm">
+    <span class="kind">confirm</span>
+    <p>With skip_weekends on, a Saturday or Sunday moves back to Friday rather than forward to Monday. Friday is implemented because it never pushes an invoice into the next month. Product-confirm before release.</p>
+    <a href="#t1-recurrence-engine">Task 1: Recurrence engine</a>
+    <div class="resolution"><label><input type="radio" name="decision-d2" value="Back to Friday (implemented)"> Back to Friday (implemented)</label><label><input type="radio" name="decision-d2" value="Forward to Monday"> Forward to Monday</label></div>
+  </div><div class="decision" id="decision-d3" data-decision="d3" data-kind="confirm">
+    <span class="kind">confirm</span>
+    <p>Generated invoices (A) stay as drafts for the owner to review and send (implemented), or (B) go out to the customer automatically at 06:00 local. Product-confirm before release.</p>
+    <a href="#t2-invoice-generation-job">Task 2: Invoice generation job</a>
+    <div class="resolution"><label><input type="radio" name="decision-d3" value="A: stay as drafts for the owner (implemented)"> A: stay as drafts for the owner (implemented)</label><label><input type="radio" name="decision-d3" value="B: send automatically at 06:00 local"> B: send automatically at 06:00 local</label></div>
+  </div><div class="decision" id="decision-d4" data-decision="d4" data-kind="open-question">
+    <span class="kind">open-question</span>
+    <p>When a paused schedule is resumed, does it generate the periods it missed while paused, or start from the next future period? The 7-day lookback currently backfills up to a week.</p>
+    <a href="#t2-invoice-generation-job">Task 2: Invoice generation job</a>
+    <div class="resolution"><label><input type="radio" name="decision-d4" value="Generate the missed periods"> Generate the missed periods</label><label><input type="radio" name="decision-d4" value="Start from the next future period"> Start from the next future period</label></div>
+  </div><div class="decision" id="decision-d5" data-decision="d5" data-kind="assumption">
+    <span class="kind">assumption</span>
+    <p>Tollgate presumably retries a failed webhook delivery for up to 72 hours; the webhook_events primary key ignores every repeat either way.</p>
+    <a href="#t3-payment-links-tollgate-webhook">Task 3: Payment links and the Tollgate webhook</a>
+    <div class="resolution"><input type="text" name="decision-d5" value="" placeholder="Your resolution"></div>
+  </div><div class="decision" id="decision-d6" data-decision="d6" data-kind="open-question">
+    <span class="kind">open-question</span>
+    <p>Can a bookkeeper pause and resume a schedule without being able to edit it? Today pausing is a PUT and needs schedules:write, which only owners hold.</p>
+    <a href="#t4-recurrence-panel-mobile-schedule">Task 4: Recurrence panel and mobile schedule summary</a>
+    <div class="resolution"><input type="text" name="decision-d6" value="" placeholder="Your resolution"></div>
+  </div></section>
+<section id="constraints"><details><summary>Global constraints (6)</summary><ul><li>Work on feature/ll-87-recurring-billing; every commit carries the Refs LL-87 trailer as its second -m.</li><li>Docker only: migrations and tests run through docker exec ledgerline_api ... and docker exec ledgerline_web ...; never run Node on the host.</li><li>Server: every route declares a zod schema through validate(); every query filters by account_id from req.auth.accountId; no console.*; outbound HTTP only through the undici client in server/src/lib/http.js; errors are AppError(code, status) with a stable upper-snake code.</li><li>Web: design tokens from web/src/styles/tokens.css, the shared Sheet recipe for every drawer, npm run lint:fix before each commit, and a browser check at 360 px and 1280 px for UI tasks.</li><li>Money is integer cents with the account currency alongside, formatted only at render time by formatMoney(cents, currency); dates travel as ISO strings (yyyy-MM-dd for calendar dates) and timezone conversion goes through date-fns-tz only.</li><li>Before a task is done: its tests pass in Docker, the touched side&#39;s full suite passes, and npm run lint:fix leaves no diff.</li></ul></details></section>
+<article class="card" id="t0-preamble" data-section="t0-preamble" data-kind="preamble" data-verdict="">
+  <header>
+    <button class="play" data-section="t0-preamble" title="Play this section">▶</button>
+    <h2>Context</h2>
+    
+    <span class="budget">read 1 min · listen 1 min</span>
+  </header>
+  <div class="sub sub-summary" id="t0-preamble-summary"><h3>Summary</h3><p>Plan 2 of 2 for recurring billing. Plan 1 delivered the schedules table, an empty recurrence panel shell in the invoice editor behind the recurring_billing flag, and a Tollgate adapter smoke-tested against the sandbox; this plan makes all three do real work. The developer owns three prerequisites: sandbox keys, a manually registered webhook secret, and a per-environment permission grant.</p></div>
+  <div class="sub sub-changes" id="t0-preamble-changes"><h3>Changes</h3><table><thead><tr><th>Role</th><th>Path</th><th>Action</th></tr></thead><tbody><tr><td>Tollgate keys and webhook secret (developer-owned)</td><td><code>server/.env.development</code></td><td>modify</td></tr></tbody></table></div>
+  <div class="sub sub-interfaces" id="t0-preamble-interfaces"><h3>Interfaces</h3><dl><dt>Consumes</dt><dd><ul><li>schedules table (Plan 1)</li><li>recurrence panel shell in the invoice editor, behind the recurring_billing flag (Plan 1)</li><li>Tollgate adapter server/src/payments/tollgate.js (Plan 1)</li><li>TOLLGATE_API_KEY</li><li>TOLLGATE_ACCOUNT_ID</li><li>TOLLGATE_WEBHOOK_SECRET</li></ul></dd><dt>Produces</dt><dd><p class="none">None.</p></dd></dl></div>
+  <div class="sub sub-decisions" id="t0-preamble-decisions"><h3>Decisions</h3><p class="none">None.</p></div>
+  <div class="sub sub-ui" id="t0-preamble-ui"><h3>UI</h3><p class="none">No UI.</p></div>
+  <div class="sub sub-risks" id="t0-preamble-risks"><h3>Risks</h3><ul><li>Manual step: register https://&lt;tunnel-host&gt;/api/webhooks/tollgate for checkout.completed in the Tollgate dashboard, copy the signing secret into TOLLGATE_WEBHOOK_SECRET, and repeat for staging and production. Without it every webhook answers 400 and no invoice is ever marked paid by card.</li><li>Manual step: run npm run perms:grant -- recurring-billing once per environment after Task 4 lands (LL-61). Without the grant every new route 403s for real accounts while the tests stay green, because the test harness grants all permissions.</li></ul></div>
+  <div class="sub sub-code" id="t0-preamble-code"><h3>Code</h3><p class="none">No code.</p></div>
+  <details class="sub sub-executor" id="t0-preamble-executor"><summary>Executor detail</summary><div class="md" data-md="t0-preamble"></div><script type="text/markdown" id="md-t0-preamble">> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Position in the series:** Plan 1 delivered the `schedules` table (`id`, `account_id`, `customer_id`, `template_invoice_id` unique, `frequency`, `anchor_day`, `starts_on`, `ends_on`, `max_count`, `skip_weekends`, `timezone`, `status`), the empty recurrence panel shell in the invoice editor behind the `recurring_billing` flag, and the Tollgate adapter (`server/src/payments/tollgate.js`) smoke-tested against the sandbox. This plan makes all three do real work.
+
+**Prerequisites the developer owns:**
+
+1. Tollgate sandbox keys `TOLLGATE_API_KEY` and `TOLLGATE_ACCOUNT_ID` in `server/.env.development`.
+2. The webhook secret is a manual step: in the Tollgate dashboard, register `https://<tunnel-host>/api/webhooks/tollgate` for `checkout.completed`, copy the signing secret into `TOLLGATE_WEBHOOK_SECRET`, and repeat for staging and production. Without it every webhook answers 400 and no invoice is ever marked paid by card.
+3. Run `npm run perms:grant -- recurring-billing` once per environment after Task 4 lands (tracked under LL-61). Without the grant every new route 403s for real accounts while the tests stay green, because the test harness grants all permissions.</script></details>
+  
+  <footer class="verdict"><button data-verdict="commented">✎ Comment</button><button data-verdict="approved">✓ Approve</button></footer>
+</article>
+<article class="card" id="t1-recurrence-engine" data-section="t1-recurrence-engine" data-kind="task" data-verdict="">
+  <header>
+    <button class="play" data-section="t1-recurrence-engine" title="Play this section">▶</button>
+    <h2>Task 1: Recurrence engine</h2>
+    
+    <span class="budget">read 1 min · listen 2 min</span>
+  </header>
+  <div class="sub sub-summary" id="t1-recurrence-engine-summary"><h3>Summary</h3><p>A pure function that turns a schedule row into its next occurrences, the only place calendar rules live. It clamps anchor days to short months, can move weekend dates back to Friday, honours an end date or a count, and issues each occurrence at 06:00 in the schedule&#39;s timezone, steady across daylight-saving changes.</p></div>
+  <div class="sub sub-changes" id="t1-recurrence-engine-changes"><h3>Changes</h3><table><thead><tr><th>Role</th><th>Path</th><th>Action</th></tr></thead><tbody><tr><td>recurrence engine</td><td><code>server/src/billing/recurrence.js</code></td><td>create</td></tr><tr><td>recurrence engine tests</td><td><code>server/test/billing/recurrence.test.js</code></td><td>test</td></tr></tbody></table></div>
+  <div class="sub sub-interfaces" id="t1-recurrence-engine-interfaces"><h3>Interfaces</h3><dl><dt>Consumes</dt><dd><ul><li>schedules.frequency (Plan 1)</li><li>schedules.anchor_day (Plan 1)</li><li>schedules.starts_on (Plan 1)</li><li>schedules.ends_on (Plan 1)</li><li>schedules.max_count (Plan 1)</li><li>schedules.skip_weekends (Plan 1)</li><li>schedules.timezone (Plan 1)</li></ul></dd><dt>Produces</dt><dd><ul><li>nextOccurrences(schedule, from, count) returning { nominalOn, issueOn, issueAt }[]</li></ul></dd></dl></div>
+  <div class="sub sub-decisions" id="t1-recurrence-engine-decisions"><h3>Decisions</h3><ul><li><a href="#decision-d1">Plan 1&#39;s schedules.timezone always holds a valid IANA name; rows imported by its migration script were never re-validated.</a></li><li><a href="#decision-d2">With skip_weekends on, a Saturday or Sunday moves back to Friday rather than forward to Monday. Friday is implemented because it never pushes an invoice into the next month. Product-confirm before release.</a></li></ul></div>
+  <div class="sub sub-ui" id="t1-recurrence-engine-ui"><h3>UI</h3><p class="none">No UI.</p></div>
+  <div class="sub sub-risks" id="t1-recurrence-engine-risks"><h3>Risks</h3><ul><li>DST gotcha: adding 24 hours to a UTC instant drifts by an hour twice a year, so the engine derives the local date first and converts 06:00 local wall time once, at the end.</li></ul></div>
+  <div class="sub sub-code" id="t1-recurrence-engine-code"><h3>Code</h3><details class="block" id="t1-recurrence-engine-b1" data-kind="test"><summary><span class="role">server/test/billing/recurrence.test.js</span> Three Vitest cases against a monthly Europe/Lisbon schedule: an anchor of 31 clamps to the last day of shorter months, a Saturday moves back to Friday when skip_weekends is on, and the issue instant stays at 06:00 local on both sides of the October DST change.</summary><ul class="behaviors"><li>clamps an anchor of 31 to the last day of shorter months</li><li>moves weekend dates back to Friday when skip_weekends is on</li><li>issues at 06:00 local time on both sides of a DST change</li></ul><pre><code class="lang-js">// server/test/billing/recurrence.test.js
+import { nextOccurrences } from &#39;../../src/billing/recurrence.js&#39;;
+
+const base = { frequency: &#39;monthly&#39;, anchor_day: 1, starts_on: &#39;2026-11-01&#39;, ends_on: null, max_count: null, skip_weekends: false, timezone: &#39;Europe/Lisbon&#39; };
+const dates = (s, n, from = new Date(&#39;2026-10-08T12:00:00Z&#39;)) =&gt; nextOccurrences(s, from, n).map((o) =&gt; o.nominalOn);
+describe(&#39;nextOccurrences&#39;, () =&gt; {
+  it(&#39;clamps an anchor of 31 to the last day of shorter months&#39;, () =&gt; {
+    expect(dates({ ...base, anchor_day: 31, starts_on: &#39;2027-01-01&#39; }, 3)).toEqual([&#39;2027-01-31&#39;, &#39;2027-02-28&#39;, &#39;2027-03-31&#39;]);
+  });
+  it(&#39;moves weekend dates back to Friday when skip_weekends is on&#39;, () =&gt; {
+    const [first] = nextOccurrences({ ...base, skip_weekends: true, starts_on: &#39;2026-08-01&#39; }, new Date(&#39;2026-07-20T00:00:00Z&#39;), 1);
+    expect(first).toMatchObject({ nominalOn: &#39;2026-08-01&#39;, issueOn: &#39;2026-07-31&#39; });
+  });
+  it(&#39;issues at 06:00 local time on both sides of a DST change&#39;, () =&gt; {
+    const at = nextOccurrences({ ...base, starts_on: &#39;2026-10-01&#39; }, new Date(&#39;2026-09-30T00:00:00Z&#39;), 2).map((o) =&gt; o.issueAt);
+    expect(at).toEqual([&#39;2026-10-01T05:00:00.000Z&#39;, &#39;2026-11-01T06:00:00.000Z&#39;]);
+  });
+});</code></pre></details><details class="block" id="t1-recurrence-engine-b2" data-kind="code"><summary><span class="role">server/src/billing/recurrence.js</span> Calendar helpers do date arithmetic on yyyy-MM-dd strings through Date.UTC, so the host timezone never leaks in. candidateAt steps weekly schedules from the anchor weekday and the others by whole months, clamping the anchor to the month length. nextOccurrences stops at max_count or ends_on, applies the weekend shift, skips dates before today in the schedule&#39;s timezone, and converts 06:00 local to a UTC instant once.</summary><pre><code class="lang-js">// server/src/billing/recurrence.js
+import { fromZonedTime, formatInTimeZone } from &#39;date-fns-tz&#39;;
+
+const MONTH_STEP = { monthly: 1, quarterly: 3, yearly: 12 };
+const parts = (iso) =&gt; iso.split(&#39;-&#39;).map(Number);
+const ymd = (y, m, d) =&gt; new Date(Date.UTC(y, m - 1, d)).toISOString().slice(0, 10);
+const weekday = (iso) =&gt; new Date(`${iso}T00:00:00Z`).getUTCDay() || 7;
+const addDays = (iso, n) =&gt; { const [y, m, d] = parts(iso); return ymd(y, m, d + n); };
+function candidateAt(s, index) {
+  if (s.frequency === &#39;weekly&#39;) return addDays(s.starts_on, ((s.anchor_day - weekday(s.starts_on) + 7) % 7) + index * 7);
+  const [y, m] = parts(s.starts_on);
+  const mi = m - 1 + index * MONTH_STEP[s.frequency];
+  const [year, month] = [y + Math.floor(mi / 12), (mi % 12) + 1];
+  return ymd(year, month, Math.min(s.anchor_day, new Date(Date.UTC(year, month, 0)).getUTCDate()));
+}
+const offWeekend = (iso) =&gt; ({ 6: addDays(iso, -1), 7: addDays(iso, -2) })[weekday(iso)] ?? iso;
+export function nextOccurrences(schedule, from, count) {
+  const today = formatInTimeZone(from, schedule.timezone, &#39;yyyy-MM-dd&#39;);
+  const out = [];
+  for (let i = 0; out.length &lt; count; i += 1) {
+    if (schedule.max_count != null &amp;&amp; i &gt;= schedule.max_count) break;
+    const nominalOn = candidateAt(schedule, i);
+    if (schedule.ends_on &amp;&amp; nominalOn &gt; schedule.ends_on) break;
+    const issueOn = schedule.skip_weekends ? offWeekend(nominalOn) : nominalOn;
+    if (issueOn &lt; today) continue;
+    out.push({ nominalOn, issueOn, issueAt: fromZonedTime(`${issueOn}T06:00:00`, schedule.timezone).toISOString() });
+  }
+  return out;
+}</code></pre></details></div>
+  <details class="sub sub-executor" id="t1-recurrence-engine-executor"><summary>Executor detail</summary><div class="md" data-md="t1-recurrence-engine"></div><script type="text/markdown" id="md-t1-recurrence-engine">- [ ] **Step 1: Write the failing tests**
+
+- [ ] **Step 2: Implement the engine**
+
+Calendar arithmetic runs on `yyyy-MM-dd` strings through `Date.UTC`, so the host timezone never leaks in. DST gotcha: adding 24 hours to a UTC instant drifts by an hour twice a year, so the engine derives the local date first and converts 06:00 local wall time once, at the end. Assume Plan 1's `schedules.timezone` always holds a valid IANA name; rows imported by its migration script were never re-validated.
+
+Product-confirm before release that `skip_weekends` moves a Saturday or Sunday back to Friday rather than forward to Monday; Friday is implemented because it never pushes an invoice into the next month.
+
+- [ ] **Step 3: Run the tests and commit**
+
+```bash
+docker exec ledgerline_api npx vitest run test/billing/recurrence.test.js
+```
+
+```bash
+git add server/src/billing/recurrence.js server/test/billing/recurrence.test.js
+git commit -m "feat(billing): add the recurrence engine" -m "Refs LL-87"
+```</script></details>
+  
+  <footer class="verdict"><button data-verdict="commented">✎ Comment</button><button data-verdict="approved">✓ Approve</button></footer>
+</article>
+<article class="card" id="t2-invoice-generation-job" data-section="t2-invoice-generation-job" data-kind="task" data-verdict="">
+  <header>
+    <button class="play" data-section="t2-invoice-generation-job" title="Play this section">▶</button>
+    <h2>Task 2: Invoice generation job</h2>
+    
+    <span class="budget">read 1 min · listen 2 min</span>
+  </header>
+  <div class="sub sub-summary" id="t2-invoice-generation-job-summary"><h3>Summary</h3><p>An hourly job that turns every due occurrence of every active schedule into a draft invoice copied from the schedule&#39;s template. A unique index on schedule and period makes it idempotent, so two racing workers or a retry produce exactly one invoice, and the number is allocated only after the insert wins so a losing racer never burns one.</p></div>
+  <div class="sub sub-changes" id="t2-invoice-generation-job-changes"><h3>Changes</h3><table><thead><tr><th>Role</th><th>Path</th><th>Action</th></tr></thead><tbody><tr><td>migration adding schedule_id, period_key and their unique index</td><td><code>server/migrations/20261008090000_invoice_schedule_period.js</code></td><td>create</td></tr><tr><td>generation service</td><td><code>server/src/billing/generate.js</code></td><td>create</td></tr><tr><td>job registry: hourly generate-due-invoices</td><td><code>server/src/jobs/index.js</code></td><td>modify</td></tr><tr><td>generation tests</td><td><code>server/test/billing/generate.test.js</code></td><td>test</td></tr></tbody></table></div>
+  <div class="sub sub-interfaces" id="t2-invoice-generation-job-interfaces"><h3>Interfaces</h3><dl><dt>Consumes</dt><dd><ul><li>nextOccurrences(schedule, from, count)</li><li>existing allocateInvoiceNumber(trx, accountId)</li></ul></dd><dt>Produces</dt><dd><ul><li>invoices.schedule_id</li><li>invoices.period_key</li><li>unique index invoices_schedule_period_unique</li><li>generateForPeriod(db, schedule, occurrence)</li><li>BullMQ job generate-due-invoices</li></ul></dd></dl></div>
+  <div class="sub sub-decisions" id="t2-invoice-generation-job-decisions"><h3>Decisions</h3><ul><li><a href="#decision-d3">Generated invoices (A) stay as drafts for the owner to review and send (implemented), or (B) go out to the customer automatically at 06:00 local. Product-confirm before release.</a></li><li><a href="#decision-d4">When a paused schedule is resumed, does it generate the periods it missed while paused, or start from the next future period? The 7-day lookback currently backfills up to a week.</a></li></ul></div>
+  <div class="sub sub-ui" id="t2-invoice-generation-job-ui"><h3>UI</h3><p class="none">No UI.</p></div>
+  <div class="sub sub-risks" id="t2-invoice-generation-job-risks"><h3>Risks</h3><ul><li>Race: two workers that pick up the same hourly tick both reach the insert; the invoices_schedule_period_unique index lets PostgreSQL accept one row and the other insert becomes a no-op.</li></ul></div>
+  <div class="sub sub-code" id="t2-invoice-generation-job-code"><h3>Code</h3><details class="block" id="t2-invoice-generation-job-b1" data-kind="test"><summary><span class="role">server/test/billing/generate.test.js</span> Vitest cases against a seeded monthly schedule starting 2026-11-01: the first period becomes a draft carrying the template&#39;s two lines, two concurrent calls for the same period create one invoice, and a repeated call leaves the account&#39;s next invoice number at 2.</summary><ul class="behaviors"><li>copies the template lines into a draft for the period</li><li>creates one invoice when two workers race for the same period</li><li>does not burn an invoice number when the period already exists</li></ul><pre><code class="lang-js">// server/test/billing/generate.test.js
+import { db, resetDb, seedSchedule } from &#39;../support/db.js&#39;;
+import { generateForPeriod } from &#39;../../src/billing/generate.js&#39;;
+import { nextOccurrences } from &#39;../../src/billing/recurrence.js&#39;;
+
+const first = (s) =&gt; nextOccurrences(s, new Date(&#39;2026-10-30T00:00:00Z&#39;), 1)[0];
+describe(&#39;invoice generation&#39;, () =&gt; {
+  let schedule;
+  beforeEach(async () =&gt; { await resetDb(); schedule = await seedSchedule({ anchor_day: 1, starts_on: &#39;2026-11-01&#39; }); });
+  it(&#39;copies the template lines into a draft for the period&#39;, async () =&gt; {
+    const { invoice } = await generateForPeriod(db, schedule, first(schedule));
+    expect(invoice).toMatchObject({ period_key: &#39;2026-11-01&#39;, status: &#39;draft&#39; });
+    expect((await db(&#39;invoice_lines&#39;).where({ invoice_id: invoice.id })).map((l) =&gt; l.amount_cents)).toEqual([120000, 4500]);
+  });
+  it(&#39;creates one invoice when two workers race for the same period&#39;, async () =&gt; {
+    const occ = first(schedule);
+    const results = await Promise.all([generateForPeriod(db, schedule, occ), generateForPeriod(db, schedule, occ)]);
+    expect(results.filter((r) =&gt; r.created)).toHaveLength(1);
+  });
+  it(&#39;does not burn an invoice number when the period already exists&#39;, async () =&gt; {
+    await generateForPeriod(db, schedule, first(schedule));
+    await generateForPeriod(db, schedule, first(schedule));
+    expect((await db(&#39;accounts&#39;).where({ id: schedule.account_id }).first()).next_invoice_number).toBe(2);
+  });
+});</code></pre></details><details class="block" id="t2-invoice-generation-job-b2" data-kind="code"><summary><span class="role">server/src/billing/generate.js</span> generateForPeriod runs in one transaction: it loads the template scoped to the account, inserts the draft with an ignored conflict on schedule and period, and returns created false when the insert lost. Only the winner copies the template lines and then allocates the invoice number, so a lost race never consumes one.</summary><pre><code class="lang-js">// server/src/billing/generate.js
+import { allocateInvoiceNumber } from &#39;../invoices/numbering.js&#39;;
+
+export async function generateForPeriod(db, schedule, occ) {
+  return db.transaction(async (trx) =&gt; {
+    const template = await trx(&#39;invoices&#39;).where({ id: schedule.template_invoice_id, account_id: schedule.account_id }).first();
+    const [invoice] = await trx(&#39;invoices&#39;)
+      .insert({ account_id: schedule.account_id, customer_id: schedule.customer_id, schedule_id: schedule.id,
+        period_key: occ.nominalOn, issue_on: occ.issueOn, currency: template.currency, status: &#39;draft&#39; })
+      .onConflict([&#39;schedule_id&#39;, &#39;period_key&#39;]).ignore().returning(&#39;*&#39;);
+    if (!invoice) return { created: false };
+    const lines = await trx(&#39;invoice_lines&#39;).where({ invoice_id: template.id }).orderBy(&#39;position&#39;);
+    await trx(&#39;invoice_lines&#39;).insert(lines.map(({ id, invoice_id, ...line }) =&gt; ({ ...line, invoice_id: invoice.id })));
+    const number = await allocateInvoiceNumber(trx, schedule.account_id);
+    const [numbered] = await trx(&#39;invoices&#39;).where({ id: invoice.id }).update({ number }).returning(&#39;*&#39;);
+    return { created: true, invoice: numbered };
+  });
+}</code></pre></details></div>
+  <details class="sub sub-executor" id="t2-invoice-generation-job-executor"><summary>Executor detail</summary><div class="md" data-md="t2-invoice-generation-job"></div><script type="text/markdown" id="md-t2-invoice-generation-job">- [ ] **Step 1: Migration and failing tests**
+
+The migration adds `invoices.schedule_id` (nullable, references `schedules.id`, `ON DELETE SET NULL`) and `invoices.period_key` (`varchar(10)`, the occurrence's `nominalOn`), with the unique index `invoices_schedule_period_unique` on the pair. That index is the guard against the double-generation race: two workers that pick up the same hourly tick both reach the insert, PostgreSQL lets one row through, and the other insert becomes a no-op.
+
+- [ ] **Step 2: Implement generation and register the job**
+
+The invoice number is allocated only after the insert wins, so a losing racer never consumes one.
+
+`generateDueInvoices(db, now)` in the same file loops over active schedules, takes `nextOccurrences(schedule, now - 7 days, 10)` whose `issueAt` has passed, and calls `generateForPeriod` for each. Register `generate-due-invoices` in `server/src/jobs/index.js` with `{ pattern: '5 * * * *' }`. Product-confirm before release, option A or B: generated invoices (A) stay as drafts for the owner to review and send (implemented), or (B) go out to the customer automatically at 06:00 local. Open question: when a paused schedule is resumed, does it generate the periods it missed while paused, or start from the next future period? The 7-day lookback currently backfills up to a week.
+
+- [ ] **Step 3: Run the tests and commit**
+
+```bash
+docker exec ledgerline_api npx knex migrate:latest
+docker exec ledgerline_api npx vitest run test/billing
+```
+
+```bash
+git add server/migrations/20261008090000_invoice_schedule_period.js server/src/billing/generate.js server/src/jobs/index.js server/test/billing/generate.test.js
+git commit -m "feat(billing): generate due invoices hourly, once per period" -m "Refs LL-87"
+```</script></details>
+  
+  <footer class="verdict"><button data-verdict="commented">✎ Comment</button><button data-verdict="approved">✓ Approve</button></footer>
+</article>
+<article class="card" id="t3-payment-links-tollgate-webhook" data-section="t3-payment-links-tollgate-webhook" data-kind="task" data-verdict="">
+  <header>
+    <button class="play" data-section="t3-payment-links-tollgate-webhook" title="Play this section">▶</button>
+    <h2>Task 3: Payment links and the Tollgate webhook</h2>
+    
+    <span class="budget">read 1 min · listen 2 min</span>
+  </header>
+  <div class="sub sub-summary" id="t3-payment-links-tollgate-webhook-summary"><h3>Summary</h3><p>Every invoice gets a reusable Tollgate checkout link, and Tollgate&#39;s signed webhook records the card payment and emits invoice.paid. The webhook checks an HMAC signature with a five-minute tolerance and records each event id once, so retries and replays never pay an invoice twice.</p></div>
+  <div class="sub sub-changes" id="t3-payment-links-tollgate-webhook-changes"><h3>Changes</h3><table><thead><tr><th>Role</th><th>Path</th><th>Action</th></tr></thead><tbody><tr><td>migration for payment_links and webhook_events</td><td><code>server/migrations/20261008091000_payment_links.js</code></td><td>create</td></tr><tr><td>payment link service</td><td><code>server/src/payments/payment-links.js</code></td><td>create</td></tr><tr><td>Tollgate webhook route</td><td><code>server/src/routes/webhooks-tollgate.js</code></td><td>create</td></tr><tr><td>Tollgate adapter: webhook signature check</td><td><code>server/src/payments/tollgate.js</code></td><td>modify</td></tr><tr><td>app wiring: webhook mounted before express.json()</td><td><code>server/src/app.js</code></td><td>modify</td></tr><tr><td>webhook route tests</td><td><code>server/test/routes/webhooks-tollgate.test.js</code></td><td>test</td></tr></tbody></table></div>
+  <div class="sub sub-interfaces" id="t3-payment-links-tollgate-webhook-interfaces"><h3>Interfaces</h3><dl><dt>Consumes</dt><dd><ul><li>existing tollgate.createCheckoutSession({ amountCents, currency, reference })</li><li>existing recordPayment(trx, { invoiceId, amountCents, method, reference })</li></ul></dd><dt>Produces</dt><dd><ul><li>createPaymentLink(invoice)</li><li>POST /api/invoices/:id/payment-link</li><li>POST /api/webhooks/tollgate</li><li>event invoice.paid</li></ul></dd></dl></div>
+  <div class="sub sub-decisions" id="t3-payment-links-tollgate-webhook-decisions"><h3>Decisions</h3><ul><li><a href="#decision-d5">Tollgate presumably retries a failed webhook delivery for up to 72 hours; the webhook_events primary key ignores every repeat either way.</a></li></ul></div>
+  <div class="sub sub-ui" id="t3-payment-links-tollgate-webhook-ui"><h3>UI</h3><p class="none">No UI.</p></div>
+  <div class="sub sub-risks" id="t3-payment-links-tollgate-webhook-risks"><h3>Risks</h3><p class="none">None.</p></div>
+  <div class="sub sub-code" id="t3-payment-links-tollgate-webhook-code"><h3>Code</h3><details class="block" id="t3-payment-links-tollgate-webhook-b1" data-kind="test"><summary><span class="role">server/test/routes/webhooks-tollgate.test.js</span> Supertest cases that sign bodies with the signTollgateBody helper against a seeded payment link: a completed checkout marks the invoice paid, the same event replayed records one payment, and a correctly signed body older than five minutes is rejected with 400 WEBHOOK_SIGNATURE_INVALID.</summary><ul class="behaviors"><li>marks the invoice paid on checkout.completed</li><li>records the payment once when the same event is replayed</li><li>rejects a correctly signed body older than five minutes</li></ul><pre><code class="lang-js">// server/test/routes/webhooks-tollgate.test.js
+import request from &#39;supertest&#39;;
+import { app } from &#39;../../src/app.js&#39;;
+import { db, resetDb, seedPaymentLink } from &#39;../support/db.js&#39;;
+import { signTollgateBody } from &#39;../support/tollgate.js&#39;;
+
+const post = (s) =&gt; request(app).post(&#39;/api/webhooks/tollgate&#39;).set(&#39;Tollgate-Signature&#39;, s.signature).type(&#39;json&#39;).send(s.body);
+const paidEvent = (link, id, opts) =&gt; signTollgateBody({ id, type: &#39;checkout.completed&#39;, data: { session_id: link.tollgate_session_id, amount_cents: 124500 } }, opts);
+describe(&#39;POST /api/webhooks/tollgate&#39;, () =&gt; {
+  let link;
+  beforeEach(async () =&gt; { await resetDb(); link = await seedPaymentLink({ amountCents: 124500 }); });
+  it(&#39;marks the invoice paid on checkout.completed&#39;, async () =&gt; {
+    await post(paidEvent(link, &#39;evt_1&#39;)).expect(200);
+    expect((await db(&#39;invoices&#39;).where({ id: link.invoice_id }).first()).status).toBe(&#39;paid&#39;);
+  });
+  it(&#39;records the payment once when the same event is replayed&#39;, async () =&gt; {
+    const signed = paidEvent(link, &#39;evt_2&#39;);
+    await post(signed).expect(200);
+    await post(signed).expect(200);
+    expect(await db(&#39;payments&#39;).where({ invoice_id: link.invoice_id })).toHaveLength(1);
+  });
+  it(&#39;rejects a correctly signed body older than five minutes&#39;, async () =&gt; {
+    const res = await post(paidEvent(link, &#39;evt_3&#39;, { ageSeconds: 301 }));
+    expect([res.status, res.body.code]).toEqual([400, &#39;WEBHOOK_SIGNATURE_INVALID&#39;]);
+  });
+});</code></pre></details><details class="block" id="t3-payment-links-tollgate-webhook-b2" data-kind="code"><summary><span class="role">server/src/routes/webhooks-tollgate.js</span> The route reads the raw JSON body, rejects a bad signature with WEBHOOK_SIGNATURE_INVALID (400), and parses only checkout.completed events with zod. In one transaction it records the event id and stops if it was already seen, locks the payment link by session, marks it completed and records the payment. invoice.paid is emitted after commit.</summary><pre><code class="lang-js">// server/src/routes/webhooks-tollgate.js
+import { Router, raw } from &#39;express&#39;;
+import { z } from &#39;zod&#39;;
+import { db } from &#39;../db.js&#39;;
+import { verifyWebhookSignature } from &#39;../payments/tollgate.js&#39;;
+import { recordPayment } from &#39;../payments/record-payment.js&#39;;
+import { bus } from &#39;../events/bus.js&#39;;
+import { AppError } from &#39;../lib/errors.js&#39;;
+import { config } from &#39;../config.js&#39;;
+
+const eventSchema = z.object({ id: z.string(), type: z.literal(&#39;checkout.completed&#39;),
+  data: z.object({ session_id: z.string(), amount_cents: z.number().int().nonnegative() }) });
+export const tollgateWebhook = Router();
+tollgateWebhook.post(&#39;/api/webhooks/tollgate&#39;, raw({ type: &#39;application/json&#39; }), async (req, res) =&gt; {
+  const rawBody = req.body.toString(&#39;utf8&#39;);
+  if (!verifyWebhookSignature(rawBody, req.get(&#39;Tollgate-Signature&#39;), config.tollgate.webhookSecret)) throw new AppError(&#39;WEBHOOK_SIGNATURE_INVALID&#39;, 400);
+  const event = eventSchema.parse(JSON.parse(rawBody));
+  const link = await db.transaction(async (trx) =&gt; {
+    const fresh = await trx(&#39;webhook_events&#39;).insert({ event_id: event.id }).onConflict(&#39;event_id&#39;).ignore().returning(&#39;event_id&#39;);
+    if (fresh.length === 0) return null;
+    const row = await trx(&#39;payment_links&#39;).where({ tollgate_session_id: event.data.session_id }).forUpdate().first();
+    if (!row) throw new AppError(&#39;PAYMENT_LINK_NOT_FOUND&#39;, 404);
+    await trx(&#39;payment_links&#39;).where({ id: row.id }).update({ status: &#39;completed&#39; });
+    await recordPayment(trx, { invoiceId: row.invoice_id, amountCents: event.data.amount_cents, method: &#39;tollgate&#39;, reference: event.data.session_id });
+    return row;
+  });
+  if (link) bus.emit(&#39;invoice.paid&#39;, { invoiceId: link.invoice_id, accountId: link.account_id });
+  res.json({ received: true });
+});</code></pre></details></div>
+  <details class="sub sub-executor" id="t3-payment-links-tollgate-webhook-executor"><summary>Executor detail</summary><div class="md" data-md="t3-payment-links-tollgate-webhook"></div><script type="text/markdown" id="md-t3-payment-links-tollgate-webhook">- [ ] **Step 1: Links, signature check, migration and failing tests**
+
+The migration creates `payment_links` (`account_id`, `invoice_id`, `tollgate_session_id` unique, `url`, `status`, `expires_at`) and `webhook_events` keyed by `event_id`. `createPaymentLink(invoice)` reuses an open link with more than an hour left, else creates a Tollgate session for `balance_cents`; `POST /api/invoices/:id/payment-link` exposes it. `verifyWebhookSignature(rawBody, header, secret)` in `tollgate.js` compares an HMAC-SHA256 of `"<t>.<rawBody>"` with `timingSafeEqual` and rejects a `t` older than 300 seconds.
+
+- [ ] **Step 2: The webhook endpoint**
+
+The `webhook_events` primary key is the replay guard. Tollgate presumably retries a failed delivery for up to 72 hours, and a captured signed body can be resent inside the 300-second window; either way the second insert is ignored and the handler answers 200 without touching the invoice.
+
+Mount it in `server/src/app.js` before `express.json()` so the raw body reaches the signature check.
+
+- [ ] **Step 3: Run the tests and commit**
+
+```bash
+docker exec ledgerline_api npx knex migrate:latest
+docker exec ledgerline_api npx vitest run test/routes/webhooks-tollgate.test.js
+```
+
+```bash
+git add server/migrations/20261008091000_payment_links.js server/src/payments server/src/routes/webhooks-tollgate.js server/src/app.js server/test/routes/webhooks-tollgate.test.js
+git commit -m "feat(payments): add Tollgate payment links and the signed webhook" -m "Refs LL-87"
+```</script></details>
+  
+  <footer class="verdict"><button data-verdict="commented">✎ Comment</button><button data-verdict="approved">✓ Approve</button></footer>
+</article>
+<article class="card" id="t4-recurrence-panel-mobile-schedule" data-section="t4-recurrence-panel-mobile-schedule" data-kind="task" data-verdict="">
+  <header>
+    <button class="play" data-section="t4-recurrence-panel-mobile-schedule" title="Play this section">▶</button>
+    <h2>Task 4: Recurrence panel and mobile schedule summary</h2>
+    
+    <span class="budget">read 1 min · listen 3 min</span>
+  </header>
+  <div class="sub sub-summary" id="t4-recurrence-panel-mobile-schedule-summary"><h3>Summary</h3><p>The owner sets up a schedule from the invoice editor: a sidebar panel at desktop widths and a tappable summary row that opens a bottom sheet on phones, both sharing one form and a live preview of the next three invoices. Behind them, routes read, save and preview schedules under new schedules:read and schedules:write permissions.</p></div>
+  <div class="sub sub-changes" id="t4-recurrence-panel-mobile-schedule-changes"><h3>Changes</h3><table><thead><tr><th>Role</th><th>Path</th><th>Action</th></tr></thead><tbody><tr><td>schedule routes</td><td><code>server/src/routes/schedules.js</code></td><td>create</td></tr><tr><td>desktop panel and the shared form</td><td><code>web/src/invoices/recurrence/RecurrencePanel.jsx</code></td><td>create</td></tr><tr><td>mobile summary row and sheet</td><td><code>web/src/invoices/recurrence/ScheduleSummary.jsx</code></td><td>create</td></tr><tr><td>schedule query, save and preview hooks</td><td><code>web/src/invoices/recurrence/useSchedule.js</code></td><td>create</td></tr><tr><td>schedule sentence builder</td><td><code>web/src/invoices/recurrence/describeSchedule.js</code></td><td>create</td></tr><tr><td>invoice editor: panel or summary by width</td><td><code>web/src/invoices/InvoiceEditor.jsx</code></td><td>modify</td></tr><tr><td>permission map: schedules:read, schedules:write</td><td><code>server/src/auth/permissions.js</code></td><td>modify</td></tr></tbody></table></div>
+  <div class="sub sub-interfaces" id="t4-recurrence-panel-mobile-schedule-interfaces"><h3>Interfaces</h3><dl><dt>Consumes</dt><dd><ul><li>nextOccurrences(schedule, from, count)</li><li>the Sheet component</li><li>Plan 1&#39;s panel slot in the editor</li></ul></dd><dt>Produces</dt><dd><ul><li>GET /api/invoices/:invoiceId/schedule</li><li>PUT /api/invoices/:invoiceId/schedule</li><li>POST /api/schedules/preview</li><li>useSchedule(invoiceId)</li><li>describeSchedule(schedule)</li><li>&lt;RecurrencePanel&gt;</li><li>&lt;ScheduleSummary&gt;</li></ul></dd></dl></div>
+  <div class="sub sub-decisions" id="t4-recurrence-panel-mobile-schedule-decisions"><h3>Decisions</h3><ul><li><a href="#decision-d6">Can a bookkeeper pause and resume a schedule without being able to edit it? Today pausing is a PUT and needs schedules:write, which only owners hold.</a></li></ul></div>
+  <div class="sub sub-ui" id="t4-recurrence-panel-mobile-schedule-ui"><h3>UI</h3><figure class="mockup" id="t4-recurrence-panel-mobile-schedule-ui1" data-ui="t4-recurrence-panel-mobile-schedule-ui1"><figcaption>Invoice editor: recurrence panel (switched on) <button class="comment-ui" data-ui="t4-recurrence-panel-mobile-schedule-ui1">Comment on this mockup</button></figcaption><div class="frame-fit"><div class="frame" style="width:1280px" title="Open full size"><div style="font-family:system-ui,-apple-system,sans-serif;color:#1f2328;font-size:14px;line-height:1.4;box-sizing:border-box;width:1280px;background:#f9fafb;padding:24px;display:flex;gap:32px;align-items:flex-start">
+<div style="width:840px"><div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;"><div style="font-size:18px;font-weight:600">Invoice 1041 · Northwind Coffee</div><div style="margin-top:16px;display:flex;justify-content:space-between;color:#6b7280;font-size:12px"><span>Line items</span><span>Amount</span></div><div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid #f3f4f6"><span>Monthly retainer</span><span style="font-variant-numeric:tabular-nums">$1,200.00</span></div><div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid #f3f4f6"><span>Equipment rental</span><span style="font-variant-numeric:tabular-nums">$45.00</span></div><div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid #e5e7eb;font-weight:600"><span>Total</span><span>$1,245.00</span></div></div></div>
+<div style="width:360px;display:flex;flex-direction:column;gap:16px">
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;"><div style="font-weight:600">Customer</div><div style="height:10px;width:70%;background:#e5e7eb;border-radius:4px;margin-top:8px"></div><div style="height:10px;width:50%;background:#e5e7eb;border-radius:4px;margin-top:8px"></div></div>
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;"><div style="font-weight:600">Payment</div><div style="height:10px;width:60%;background:#e5e7eb;border-radius:4px;margin-top:8px"></div><div style="height:10px;width:40%;background:#e5e7eb;border-radius:4px;margin-top:8px"></div></div>
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">&#8635;</span><span style="font-weight:600;flex:1">Repeat this invoice</span><span style="width:36px;height:20px;border-radius:10px;background:#4f46e5;position:relative;display:inline-block"><span style="position:absolute;right:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff"></span></span></div>
+<div style="background:#eef2ff;border-radius:8px;padding:8px 10px;margin-top:12px;font-size:13px">Monthly on the 1st, starting Nov 1, 2026, until cancelled</div>
+<div style="display:flex;border:1px solid #d1d5db;border-radius:8px;overflow:hidden;margin-top:12px"><div style="flex:1;text-align:center;padding:6px 0;font-size:13px;">Weekly</div><div style="flex:1;text-align:center;padding:6px 0;font-size:13px;border-left:1px solid #d1d5db;background:#eef2ff;color:#3730a3;font-weight:600">Monthly</div><div style="flex:1;text-align:center;padding:6px 0;font-size:13px;border-left:1px solid #d1d5db;">Quarterly</div><div style="flex:1;text-align:center;padding:6px 0;font-size:13px;border-left:1px solid #d1d5db;">Yearly</div></div><div style="display:flex;gap:12px;margin-top:12px"><div style="flex:1"><div style="font-size:12px;color:#6b7280;margin-bottom:4px">On</div><div style="border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;background:#fff;">1 &#9662;</div></div><div style="flex:1;"><div style="font-size:12px;color:#6b7280;margin-bottom:4px">Starts</div><div style="border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;background:#fff;">2026-11-01</div></div></div>
+<div style="margin-top:12px"><div style="font-size:12px;color:#6b7280;margin-bottom:4px">Ends</div><div style="display:flex;align-items:center;gap:8px;margin-top:6px"><span style="width:14px;height:14px;border-radius:50%;border:1px solid #6b7280;display:inline-block;box-shadow:inset 0 0 0 3px #fff;background:#4f46e5"></span>Never</div><div style="display:flex;align-items:center;gap:8px;margin-top:6px"><span style="width:14px;height:14px;border-radius:50%;border:1px solid #6b7280;display:inline-block;"></span>On <div style="border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;background:#fff;display:inline-block;padding:2px 6px;font-size:12px;color:#6b7280">date</div></div><div style="display:flex;align-items:center;gap:8px;margin-top:6px"><span style="width:14px;height:14px;border-radius:50%;border:1px solid #6b7280;display:inline-block;"></span>After <div style="border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;background:#fff;display:inline-block;padding:2px 8px;font-size:12px">&nbsp;n&nbsp;</div> invoices</div></div>
+<div style="display:flex;align-items:center;gap:8px;margin-top:12px"><span style="width:14px;height:14px;border-radius:3px;background:#4f46e5;display:inline-block"></span>Move weekend dates to Friday</div>
+<div style="margin-top:16px"><div style="font-weight:600;margin-bottom:4px">Next 3 invoices</div><div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #f3f4f6"><span>Fri, Oct 30 <small style="color:#6b7280">moved from Sun</small></span><span style="font-variant-numeric:tabular-nums">$1,245.00</span></div><div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #f3f4f6"><span>Tue, Dec 1</span><span style="font-variant-numeric:tabular-nums">$1,245.00</span></div><div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #f3f4f6"><span>Fri, Jan 1</span><span style="font-variant-numeric:tabular-nums">$1,245.00</span></div></div>
+<div style="display:flex;justify-content:space-between;margin-top:16px"><div style="text-align:center;padding:8px 14px;border-radius:8px;font-weight:600;background:#fff;color:#374151;border:1px solid #d1d5db;border:0;background:transparent">Pause</div><div style="text-align:center;padding:8px 14px;border-radius:8px;font-weight:600;background:#4f46e5;color:#fff;">Save schedule</div></div></div>
+</div></div></div></div><p class="notes">The panel is the third sidebar card, under Customer and Payment. Switched off it shows only the header and the muted line &quot;Send this invoice on a schedule.&quot; Pause appears only for a saved schedule. The first preview row shows a Sunday moved back to Friday. Design exemplars: web/src/customers/CustomerPanel.jsx for the sidebar card anatomy, web/src/payments/RecordPaymentSheet.jsx for a form inside the Sheet recipe.</p></figure><figure class="mockup" id="t4-recurrence-panel-mobile-schedule-ui2" data-ui="t4-recurrence-panel-mobile-schedule-ui2"><figcaption>Mobile editor: schedule summary row and sheet <button class="comment-ui" data-ui="t4-recurrence-panel-mobile-schedule-ui2">Comment on this mockup</button></figcaption><div class="frame-fit"><div class="frame" style="width:360px" title="Open full size"><div style="font-family:system-ui,-apple-system,sans-serif;color:#1f2328;font-size:14px;line-height:1.4;box-sizing:border-box;width:360px;background:#f9fafb;padding:16px">
+<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;"><div style="font-weight:600">Line items</div><div style="height:10px;width:80%;background:#e5e7eb;border-radius:4px;margin-top:8px"></div><div style="height:10px;width:60%;background:#e5e7eb;border-radius:4px;margin-top:8px"></div></div>
+<div style="margin-top:12px"><div style="height:72px;box-sizing:border-box;display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:0 12px">
+<span style="font-size:18px">&#8635;</span>
+<div style="flex:1;min-width:0"><div style="overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">Monthly on the 1st, starting Nov 1, 2026, until cancelled</div><span style="display:inline-block;margin-top:4px;font-size:11px;background:#f3f4f6;border-radius:4px;padding:1px 6px">Next: Fri, Oct 30</span></div>
+<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#dcfce7;color:#166534;font-size:12px;font-weight:600;white-space:nowrap">Active</span><span style="color:#6b7280;font-size:18px">&#8250;</span></div></div>
+<div style="margin-top:12px"><div style="height:72px;box-sizing:border-box;display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:0 12px">
+<span style="font-size:18px">&#8635;</span>
+<div style="flex:1;min-width:0"><div style="overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">Repeat this invoice</div></div>
+<span style="display:inline-block;padding:2px 8px;border-radius:999px;background:#f3f4f6;color:#6b7280;font-size:12px;font-weight:600;white-space:nowrap">Off</span><span style="color:#6b7280;font-size:18px">&#8250;</span></div></div>
+<div style="margin:16px 0 8px;font-size:11px;color:#6b7280;text-align:center;border-top:1px dashed #d1d5db;padding-top:6px">after tapping: bottom sheet, 90 % height</div>
+<div style="background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -4px 16px rgba(0,0,0,.12);padding:12px 16px 0">
+<div style="width:40px;height:4px;border-radius:2px;background:#d1d5db;margin:0 auto 12px"></div>
+<div style="font-weight:600;font-size:16px">Repeat this invoice</div>
+<div style="background:#eef2ff;border-radius:8px;padding:8px 10px;margin-top:12px;font-size:13px">Monthly on the 1st, starting Nov 1, 2026, until cancelled</div>
+<div style="display:flex;border:1px solid #d1d5db;border-radius:8px;overflow:hidden;margin-top:12px"><div style="flex:1;text-align:center;padding:6px 0;font-size:13px;">Weekly</div><div style="flex:1;text-align:center;padding:6px 0;font-size:13px;border-left:1px solid #d1d5db;background:#eef2ff;color:#3730a3;font-weight:600">Monthly</div><div style="flex:1;text-align:center;padding:6px 0;font-size:13px;border-left:1px solid #d1d5db;">Quarterly</div><div style="flex:1;text-align:center;padding:6px 0;font-size:13px;border-left:1px solid #d1d5db;">Yearly</div></div><div style="margin-top:12px"><div style="flex:1"><div style="font-size:12px;color:#6b7280;margin-bottom:4px">On</div><div style="border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;background:#fff;">1 &#9662;</div></div><div style="flex:1;margin-top:12px"><div style="font-size:12px;color:#6b7280;margin-bottom:4px">Starts</div><div style="border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;background:#fff;">2026-11-01</div></div></div>
+<div style="margin-top:12px"><div style="font-size:12px;color:#6b7280;margin-bottom:4px">Ends</div><div style="display:flex;align-items:center;gap:8px;margin-top:6px"><span style="width:14px;height:14px;border-radius:50%;border:1px solid #6b7280;display:inline-block;box-shadow:inset 0 0 0 3px #fff;background:#4f46e5"></span>Never</div><div style="display:flex;align-items:center;gap:8px;margin-top:6px"><span style="width:14px;height:14px;border-radius:50%;border:1px solid #6b7280;display:inline-block;"></span>On <div style="border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;background:#fff;display:inline-block;padding:2px 6px;font-size:12px;color:#6b7280">date</div></div><div style="display:flex;align-items:center;gap:8px;margin-top:6px"><span style="width:14px;height:14px;border-radius:50%;border:1px solid #6b7280;display:inline-block;"></span>After <div style="border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;background:#fff;display:inline-block;padding:2px 8px;font-size:12px">&nbsp;n&nbsp;</div> invoices</div></div>
+<div style="display:flex;align-items:center;gap:8px;margin-top:12px"><span style="width:14px;height:14px;border-radius:3px;background:#4f46e5;display:inline-block"></span>Move weekend dates to Friday</div>
+<div style="margin-top:16px"><div style="font-weight:600;margin-bottom:4px">Next 3 invoices</div><div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #f3f4f6"><span>Fri, Oct 30 <small style="color:#6b7280">moved from Sun</small></span><span style="font-variant-numeric:tabular-nums">$1,245.00</span></div><div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #f3f4f6"><span>Tue, Dec 1</span><span style="font-variant-numeric:tabular-nums">$1,245.00</span></div><div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #f3f4f6"><span>Fri, Jan 1</span><span style="font-variant-numeric:tabular-nums">$1,245.00</span></div></div>
+<div style="background:#fff;padding:12px 0;margin-top:12px;border-top:1px solid #e5e7eb"><div style="text-align:center;padding:8px 14px;border-radius:8px;font-weight:600;background:#4f46e5;color:#fff;">Save schedule</div></div>
+</div></div></div></div><p class="notes">Below 768 px the editor stacks into one column. Top: the summary row for an active schedule (Paused shows a grey pill), then the row with no schedule yet. Below the divider: the bottom Sheet at 90 % height, the same form in one column with Save schedule full width in a sticky footer.</p></figure></div>
+  <div class="sub sub-risks" id="t4-recurrence-panel-mobile-schedule-risks"><h3>Risks</h3><ul><li>The panel block is abbreviated: the On, Starts and Ends fields, the weekend checkbox and the Pause button are a comment telling the executor to copy the field markup from web/src/settings/AccountForm.jsx.</li></ul></div>
+  <div class="sub sub-code" id="t4-recurrence-panel-mobile-schedule-code"><h3>Code</h3><details class="block" id="t4-recurrence-panel-mobile-schedule-b1" data-kind="code"><summary><span class="role">web/src/invoices/recurrence/RecurrencePanel.jsx</span> RecurrenceForm keeps a local draft seeded from the saved schedule or defaultSchedule(), and renders the describeSchedule sentence, the frequency segmented control, the Next 3 invoices preview with a moved-from note, and Save schedule. Changing frequency resets the anchor day to 1. The other fields and Pause are a comment pointing at AccountForm.jsx.</summary><pre><code class="lang-jsx">// web/src/invoices/recurrence/RecurrencePanel.jsx
+import { useEffect, useState } from &#39;react&#39;;
+import { useSchedule, usePreview, defaultSchedule } from &#39;./useSchedule.js&#39;;
+import { describeSchedule } from &#39;./describeSchedule.js&#39;;
+import { formatMoney } from &#39;../../lib/money.js&#39;;
+
+const FREQUENCIES = [&#39;weekly&#39;, &#39;monthly&#39;, &#39;quarterly&#39;, &#39;yearly&#39;];
+export function RecurrenceForm({ invoiceId, total, onSaved }) {
+  const { data, save } = useSchedule(invoiceId);
+  const [draft, setDraft] = useState(null);
+  useEffect(() =&gt; setDraft(data?.schedule ?? defaultSchedule()), [data]);
+  const preview = usePreview(draft);
+  if (!draft) return null;
+  return (
+    &lt;form className=&quot;recurrence&quot; onSubmit={(e) =&gt; { e.preventDefault(); save.mutate(draft, { onSuccess: onSaved }); }}&gt;
+      &lt;p className=&quot;recurrence__summary&quot;&gt;{describeSchedule(draft)}&lt;/p&gt;
+      &lt;div className=&quot;segmented&quot; role=&quot;radiogroup&quot; aria-label=&quot;Frequency&quot;&gt;
+        {FREQUENCIES.map((f) =&gt; &lt;button key={f} type=&quot;button&quot; role=&quot;radio&quot; aria-checked={draft.frequency === f}
+          onClick={() =&gt; setDraft({ ...draft, frequency: f, anchor_day: 1 })}&gt;{f[0].toUpperCase() + f.slice(1)}&lt;/button&gt;)}
+      &lt;/div&gt;
+      {/* &quot;On&quot;, &quot;Starts&quot;, &quot;Ends&quot;, the weekend checkbox and the &quot;Pause&quot; button: copy the field markup from web/src/settings/AccountForm.jsx. */}
+      &lt;section aria-label=&quot;Next 3 invoices&quot;&gt;
+        {preview.data?.upcoming.map((o) =&gt; (
+          &lt;div key={o.nominalOn} className=&quot;recurrence__row&quot;&gt;
+            &lt;span&gt;{o.issueOn}{o.issueOn !== o.nominalOn &amp;&amp; &lt;small className=&quot;muted&quot;&gt; moved from {o.nominalOn}&lt;/small&gt;}&lt;/span&gt;
+            &lt;span className=&quot;tabular&quot;&gt;{formatMoney(total.cents, total.currency)}&lt;/span&gt;
+          &lt;/div&gt;))}
+      &lt;/section&gt;
+      &lt;button type=&quot;submit&quot; className=&quot;btn btn--primary&quot; disabled={save.isPending}&gt;Save schedule&lt;/button&gt;
+    &lt;/form&gt;
+  );
+}</code></pre></details><details class="block" id="t4-recurrence-panel-mobile-schedule-b2" data-kind="code"><summary><span class="role">web/src/invoices/recurrence/ScheduleSummary.jsx</span> One button shows the schedule sentence (or Repeat this invoice when there is none), a Next chip with the first upcoming issue date, and an Active, Paused or Off pill. Tapping opens a Sheet at 90vh titled Repeat this invoice that hosts the same RecurrenceForm and closes on save.</summary><pre><code class="lang-jsx">// web/src/invoices/recurrence/ScheduleSummary.jsx
+import { useState } from &#39;react&#39;;
+import { Sheet } from &#39;../../components/Sheet.jsx&#39;;
+import { useSchedule } from &#39;./useSchedule.js&#39;;
+import { describeSchedule } from &#39;./describeSchedule.js&#39;;
+import { RecurrenceForm } from &#39;./RecurrencePanel.jsx&#39;;
+
+export function ScheduleSummary({ invoiceId, total }) {
+  const { data } = useSchedule(invoiceId);
+  const [open, setOpen] = useState(false);
+  const schedule = data?.schedule;
+  return (
+    &lt;&gt;
+      &lt;button type=&quot;button&quot; className=&quot;schedule-summary&quot; onClick={() =&gt; setOpen(true)}&gt;
+        &lt;span className=&quot;schedule-summary__text&quot;&gt;
+          {schedule ? describeSchedule(schedule) : &#39;Repeat this invoice&#39;}
+          {data?.upcoming?.[0] &amp;&amp; &lt;span className=&quot;chip&quot;&gt;Next: {data.upcoming[0].issueOn}&lt;/span&gt;}
+        &lt;/span&gt;
+        &lt;span className={`pill pill--${schedule?.status === &#39;active&#39; ? &#39;success&#39; : &#39;neutral&#39;}`}&gt;{schedule?.status === &#39;active&#39; ? &#39;Active&#39; : schedule ? &#39;Paused&#39; : &#39;Off&#39;}&lt;/span&gt;
+      &lt;/button&gt;
+      &lt;Sheet open={open} onClose={() =&gt; setOpen(false)} title=&quot;Repeat this invoice&quot; height=&quot;90vh&quot;&gt;
+        &lt;RecurrenceForm invoiceId={invoiceId} total={total} onSaved={() =&gt; setOpen(false)} /&gt;
+      &lt;/Sheet&gt;
+    &lt;/&gt;
+  );
+}</code></pre></details></div>
+  <details class="sub sub-executor" id="t4-recurrence-panel-mobile-schedule-executor"><summary>Executor detail</summary><div class="md" data-md="t4-recurrence-panel-mobile-schedule"></div><script type="text/markdown" id="md-t4-recurrence-panel-mobile-schedule">- [ ] **Step 1: Schedule endpoints and hook**
+
+`server/src/routes/schedules.js` validates the body with a `zod` schema mirroring Plan 1's columns (weekly anchors 1–7, an end date and a count mutually exclusive). `GET` and `PUT /api/invoices/:invoiceId/schedule` return `{ schedule, upcoming: nextOccurrences(schedule, new Date(), 3) }`; `PUT` upserts on `template_invoice_id`. `POST /api/schedules/preview` returns `upcoming` for an unsaved draft. Add `schedules:read` (owner, bookkeeper) and `schedules:write` (owner) to `permissions.js`. `useSchedule.js` exports `useSchedule(invoiceId)` (the `GET` plus a `PUT` mutation that refreshes `['schedule', invoiceId]` and `['forecast']`), `usePreview(draft)` and `defaultSchedule()`; `describeSchedule(schedule)` builds the sentence both views show. Open question: can a bookkeeper pause and resume a schedule without being able to edit it? Today pausing is a `PUT` and needs `schedules:write`.
+
+- [ ] **Step 2: The panel at 1280 px**
+
+At 1280 px the editor has line items on the left (about 840 px) and a 360 px sidebar; the panel is the third sidebar card, under "Customer" and "Payment".
+- Header row: repeat icon, "Repeat this invoice", an on/off switch right-aligned. Off: a muted line "Send this invoice on a schedule."
+- On, top to bottom: a summary sentence on a tinted strip ("Monthly on the 1st, starting Nov 1, 2026, until cancelled"); a full-width segmented control "Weekly | Monthly | Quarterly | Yearly"; "On" select and "Starts" date side by side; an "Ends" radio group ("Never", "On <date>", "After <n> invoices"); a "Move weekend dates to Friday" checkbox.
+- "Next 3 invoices": three rows, issue date left and template total right; a weekend-shifted row adds a muted "moved from Sat".
+- Footer: "Pause" ghost button left (saved schedules only), "Save schedule" primary right.
+
+`RecurrencePanel` wraps `RecurrenceForm` in the sidebar card with the header switch.
+
+- [ ] **Step 3: The summary at 360 px**
+
+Below 768 px the editor stacks into one column. The recurrence card becomes one tappable 72 px row inside 16 px gutters: repeat icon left; the summary sentence clamped to two lines with a "Next: Mon, Nov 2" chip under it; an "Active" (green) or "Paused" (grey) pill and a chevron on the right. Tapping opens a bottom `Sheet` at 90 % height titled "Repeat this invoice" with the same form in one column and "Save schedule" full width in a sticky footer.
+
+`InvoiceEditor.jsx` renders `RecurrencePanel` at 768 px and up, `ScheduleSummary` below; check both widths in the browser.
+
+- [ ] **Step 4: Run the tests and commit**
+
+```bash
+docker exec ledgerline_api npx vitest run test/routes
+docker exec ledgerline_web npx vitest run src/invoices
+```
+
+```bash
+git add server/src/routes/schedules.js server/src/auth/permissions.js web/src/invoices
+git commit -m "feat(invoices): add the recurrence panel and the mobile schedule summary" -m "Refs LL-87"
+```</script></details>
+  
+  <footer class="verdict"><button data-verdict="commented">✎ Comment</button><button data-verdict="approved">✓ Approve</button></footer>
+</article>
+<article class="card" id="t5-cash-forecast-card" data-section="t5-cash-forecast-card" data-kind="task" data-verdict="">
+  <header>
+    <button class="play" data-section="t5-cash-forecast-card" title="Play this section">▶</button>
+    <h2>Task 5: Cash forecast card</h2>
+    
+    <span class="budget">read 1 min · listen 2 min</span>
+  </header>
+  <div class="sub sub-summary" id="t5-cash-forecast-card-summary"><h3>Summary</h3><p>A dashboard card showing the cash expected over the next 90 days as thirteen weekly stacked bars of open and scheduled invoices. Open invoices, including scheduled drafts, land in the week they are due, and future occurrences in the week of their issue date plus payment terms. The endpoint caches per account for an hour and drops the cache when an invoice is paid.</p></div>
+  <div class="sub sub-changes" id="t5-cash-forecast-card-changes"><h3>Changes</h3><table><thead><tr><th>Role</th><th>Path</th><th>Action</th></tr></thead><tbody><tr><td>forecast service</td><td><code>server/src/billing/forecast.js</code></td><td>create</td></tr><tr><td>forecast route with hourly cache</td><td><code>server/src/routes/forecast.js</code></td><td>create</td></tr><tr><td>dashboard forecast card</td><td><code>web/src/dashboard/CashForecastCard.jsx</code></td><td>create</td></tr><tr><td>dashboard grid: card behind the flag</td><td><code>web/src/dashboard/Dashboard.jsx</code></td><td>modify</td></tr></tbody></table></div>
+  <div class="sub sub-interfaces" id="t5-cash-forecast-card-interfaces"><h3>Interfaces</h3><dl><dt>Consumes</dt><dd><ul><li>nextOccurrences(schedule, from, count)</li><li>invoices.schedule_id</li><li>event invoice.paid</li></ul></dd><dt>Produces</dt><dd><ul><li>buildForecast(db, accountId, from, days)</li><li>GET /api/forecast?days=90</li><li>&lt;CashForecastCard&gt;</li></ul></dd></dl></div>
+  <div class="sub sub-decisions" id="t5-cash-forecast-card-decisions"><h3>Decisions</h3><p class="none">None.</p></div>
+  <div class="sub sub-ui" id="t5-cash-forecast-card-ui"><h3>UI</h3><figure class="mockup" id="t5-cash-forecast-card-ui1" data-ui="t5-cash-forecast-card-ui1"><figcaption>Dashboard: cash forecast card <button class="comment-ui" data-ui="t5-cash-forecast-card-ui1">Comment on this mockup</button></figcaption><div class="frame-fit"><div class="frame" style="width:720px" title="Open full size"><div style="font-family:system-ui,-apple-system,sans-serif;color:#1f2328;font-size:14px;line-height:1.4;box-sizing:border-box;width:720px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px">
+<div style="display:flex;justify-content:space-between;align-items:flex-start"><div><span style="font-weight:600;font-size:16px">Cash forecast</span> <span style="color:#6b7280">next 90 days</span></div><div style="text-align:right"><div style="font-size:28px;font-weight:700;font-variant-numeric:tabular-nums">$40,750.00</div><div style="color:#6b7280;font-size:12px">expected</div></div></div>
+<div style="display:flex;gap:16px;margin-top:8px;font-size:12px"><span><span style="display:inline-block;width:10px;height:10px;background:#4f46e5;border-radius:2px"></span> Open invoices</span><span><span style="display:inline-block;width:10px;height:10px;background:#c7d2fe;border-radius:2px"></span> Scheduled</span></div>
+<div style="position:relative;height:224px;margin-top:16px"><div style="position:absolute;left:40px;right:0;bottom:24px;border-top:1px solid #f3f4f6"><span style="position:absolute;left:-40px;top:-8px;font-size:11px;color:#6b7280">$0</span></div><div style="position:absolute;left:40px;right:0;bottom:74px;border-top:1px solid #f3f4f6"><span style="position:absolute;left:-40px;top:-8px;font-size:11px;color:#6b7280">$2k</span></div><div style="position:absolute;left:40px;right:0;bottom:124px;border-top:1px solid #f3f4f6"><span style="position:absolute;left:-40px;top:-8px;font-size:11px;color:#6b7280">$4k</span></div><div style="position:absolute;left:40px;right:0;bottom:174px;border-top:1px solid #f3f4f6"><span style="position:absolute;left:-40px;top:-8px;font-size:11px;color:#6b7280">$6k</span></div><div style="position:absolute;left:40px;right:0;bottom:224px;border-top:1px solid #f3f4f6"><span style="position:absolute;left:-40px;top:-8px;font-size:11px;color:#6b7280">$8k</span></div><div style="position:absolute;left:44px;bottom:24px;display:flex;align-items:flex-end"><div style="position:relative;width:32px;height:200px;margin-right:8px">
+<div style="position:absolute;bottom:0;width:32px;height:150px;background:#4f46e5;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;bottom:150px;width:32px;height:0px;background:#c7d2fe;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;top:204px;left:-8px;width:48px;text-align:center;font-size:11px;color:#6b7280">Oct 8</div></div><div style="position:relative;width:32px;height:200px;margin-right:8px">
+<div style="position:absolute;bottom:0;width:32px;height:30px;background:#4f46e5;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;bottom:30px;width:32px;height:86.25px;background:#c7d2fe;border-radius:2px 2px 0 0"></div>
+</div><div style="position:relative;width:32px;height:200px;margin-right:8px">
+<div style="position:absolute;bottom:0;width:32px;height:60px;background:#4f46e5;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;bottom:60px;width:32px;height:40px;background:#c7d2fe;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;top:204px;left:-8px;width:48px;text-align:center;font-size:11px;color:#6b7280">Oct 22</div></div><div style="position:relative;width:32px;height:200px;margin-right:8px">
+<div style="position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;bottom:0px;width:32px;height:31.25px;background:#c7d2fe;border-radius:2px 2px 0 0"></div>
+</div><div style="position:relative;width:32px;height:200px;margin-right:8px">
+<div style="position:absolute;bottom:0;width:32px;height:10px;background:#4f46e5;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;bottom:10px;width:32px;height:130px;background:#c7d2fe;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;top:204px;left:-8px;width:48px;text-align:center;font-size:11px;color:#6b7280">Nov 5</div></div><div style="position:relative;width:32px;height:200px;margin-right:8px">
+<div style="position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;bottom:0px;width:32px;height:40px;background:#c7d2fe;border-radius:2px 2px 0 0"></div>
+</div><div style="position:relative;width:32px;height:200px;margin-right:8px">
+<div style="position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;bottom:0px;width:32px;height:50px;background:#c7d2fe;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;top:204px;left:-8px;width:48px;text-align:center;font-size:11px;color:#6b7280">Nov 19</div></div><div style="position:relative;width:32px;height:200px;margin-right:8px">
+<div style="position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;bottom:0px;width:32px;height:10px;background:#c7d2fe;border-radius:2px 2px 0 0"></div>
+</div><div style="position:relative;width:32px;height:200px;margin-right:8px">
+<div style="position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;bottom:0px;width:32px;height:160px;background:#c7d2fe;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;top:204px;left:-8px;width:48px;text-align:center;font-size:11px;color:#6b7280">Dec 3</div></div><div style="position:relative;width:32px;height:200px;margin-right:8px">
+<div style="position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;bottom:0px;width:32px;height:40px;background:#c7d2fe;border-radius:2px 2px 0 0"></div>
+</div><div style="position:relative;width:32px;height:200px;margin-right:8px">
+<div style="position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;bottom:0px;width:32px;height:31.25px;background:#c7d2fe;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;top:204px;left:-8px;width:48px;text-align:center;font-size:11px;color:#6b7280">Dec 17</div></div><div style="position:relative;width:32px;height:200px;margin-right:8px">
+<div style="position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;bottom:0px;width:32px;height:10px;background:#c7d2fe;border-radius:2px 2px 0 0"></div>
+</div><div style="position:relative;width:32px;height:200px;margin-right:8px">
+<div style="position:absolute;bottom:0;width:32px;height:0px;background:#4f46e5;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;bottom:0px;width:32px;height:140px;background:#c7d2fe;border-radius:2px 2px 0 0"></div>
+<div style="position:absolute;top:204px;left:-8px;width:48px;text-align:center;font-size:11px;color:#6b7280">Dec 31</div></div></div><div style="position:absolute;left:96px;top:40px;background:#111827;color:#fff;font-size:12px;border-radius:6px;padding:6px 8px;white-space:nowrap">Week of Oct 15<br>Open $1,200.00<br>Scheduled $3,450.00</div></div>
+<div style="display:flex;gap:12px;margin-top:16px"><div style="flex:1;background:#f9fafb;border-radius:8px;padding:10px 12px"><div style="font-size:12px;color:#6b7280">Next 30 days</div><div style="font-weight:600;font-variant-numeric:tabular-nums">$15,900.00</div></div><div style="flex:1;background:#f9fafb;border-radius:8px;padding:10px 12px"><div style="font-size:12px;color:#6b7280">31–60 days</div><div style="font-weight:600;font-variant-numeric:tabular-nums">$9,600.00</div></div><div style="flex:1;background:#f9fafb;border-radius:8px;padding:10px 12px"><div style="font-size:12px;color:#6b7280">61–90 days</div><div style="font-weight:600;font-variant-numeric:tabular-nums">$15,250.00</div></div></div>
+</div></div></div><p class="notes">About 720 px wide in the first row of the 1280 px dashboard grid, beside the existing Outstanding card, not full width. The tooltip on the second bar is the native SVG title shown on hover. Empty state: &quot;No expected income yet.&quot; with a &quot;Set up a recurring invoice&quot; link in place of the chart. At 360 px the card takes the full column and the tiles stack. Header, legend, tiles and empty state copy the markup of web/src/dashboard/OutstandingCard.jsx.</p></figure></div>
+  <div class="sub sub-risks" id="t5-cash-forecast-card-risks"><h3>Risks</h3><p class="none">None.</p></div>
+  <div class="sub sub-code" id="t5-cash-forecast-card-code"><h3>Code</h3><details class="block" id="t5-cash-forecast-card-b1" data-kind="code"><summary><span class="role">server/src/billing/forecast.js</span> Builds weekly buckets from the start date and adds sent, overdue and scheduled-draft invoices by due date, clamping anything overdue into the first week. Then it walks up to 60 future occurrences per active schedule and adds the template total in the week of issue date plus payment terms. It returns the weeks and the total in cents.</summary><pre><code class="lang-js">// server/src/billing/forecast.js
+import { nextOccurrences } from &#39;./recurrence.js&#39;;
+
+const plusDays = (iso, n) =&gt; new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
+export async function buildForecast(db, accountId, from, days) {
+  const [start, end] = [from.toISOString().slice(0, 10), plusDays(from.toISOString().slice(0, 10), days)];
+  const weeks = Array.from({ length: Math.ceil(days / 7) }, (_, i) =&gt; ({ weekOf: plusDays(start, i * 7), openCents: 0, scheduledCents: 0 }));
+  const bucket = (iso) =&gt; weeks[Math.max(0, Math.floor((Date.parse(iso) - Date.parse(start)) / (7 * 86400000)))];
+  const open = await db(&#39;invoices&#39;).where({ account_id: accountId }).andWhere(&#39;due_on&#39;, &#39;&lt;&#39;, end)
+    .andWhere((q) =&gt; q.whereIn(&#39;status&#39;, [&#39;sent&#39;, &#39;overdue&#39;]).orWhere((d) =&gt; d.where(&#39;status&#39;, &#39;draft&#39;).whereNotNull(&#39;schedule_id&#39;)));
+  for (const inv of open) bucket(inv.due_on).openCents += inv.balance_cents;
+  const schedules = await db(&#39;schedules as s&#39;).join(&#39;invoices as t&#39;, &#39;t.id&#39;, &#39;s.template_invoice_id&#39;)
+    .where({ &#39;s.account_id&#39;: accountId, &#39;s.status&#39;: &#39;active&#39; }).select(&#39;s.*&#39;, &#39;t.total_cents&#39;, &#39;t.payment_terms_days&#39;);
+  for (const s of schedules) {
+    for (const o of nextOccurrences(s, from, 60).filter((x) =&gt; x.issueAt &gt; from.toISOString())) {
+      const expectedOn = plusDays(o.issueOn, s.payment_terms_days);
+      if (expectedOn &gt;= end) break;
+      bucket(expectedOn).scheduledCents += s.total_cents;
+    }
+  }
+  return { weeks, totalCents: weeks.reduce((sum, w) =&gt; sum + w.openCents + w.scheduledCents, 0) };
+}</code></pre></details></div>
+  <details class="sub sub-executor" id="t5-cash-forecast-card-executor"><summary>Executor detail</summary><div class="md" data-md="t5-cash-forecast-card"></div><script type="text/markdown" id="md-t5-cash-forecast-card">- [ ] **Step 1: Forecast service**
+
+Open invoices land in the week of their `due_on`; drafts with a `schedule_id` count as open; future occurrences land in the week of `issueOn + payment_terms_days`. `GET /api/forecast` caches the result per account for an hour and drops the cache on `invoice.paid`.
+
+- [ ] **Step 2: The card at 1280 px**
+
+The dashboard at 1280 px is a grid; the forecast card is about 720 px wide, in the first row beside the existing "Outstanding" card, not full width.
+- Header row: "Cash forecast" with a muted "next 90 days" on the left; the total on the right in large tabular figures over a muted "expected".
+- Legend: "Open invoices" (solid) and "Scheduled" (lighter tint of the same hue).
+- Chart, 200 px tall: thirteen stacked weekly bars, open at the bottom; week-start labels ("Oct 12") under every other bar; hovering a bar shows the week and both amounts.
+- Footer: three tiles, "Next 30 days", "31–60 days", "61–90 days".
+- Empty state: "No expected income yet." with a "Set up a recurring invoice" link.
+
+`CashForecastCard` queries `['forecast', 90]` and draws the bars as one SVG `<g>` per week holding two `<rect>`s scaled to the busiest week, with a `<title>` for the hover text. Header, legend, tiles and empty state: copy the markup of `web/src/dashboard/OutstandingCard.jsx`. Add the card to `Dashboard.jsx` behind the `recurring_billing` flag; at 360 px it takes the full column and the tiles stack.
+
+- [ ] **Step 3: Run the tests and commit**
+
+```bash
+docker exec ledgerline_api npx vitest run test/billing
+docker exec ledgerline_web npx vitest run src/dashboard
+```
+
+```bash
+git add server/src/billing/forecast.js web/src/dashboard
+git commit -m "feat(dashboard): add the 90-day cash forecast card" -m "Refs LL-87"
+```</script></details>
+  
+  <footer class="verdict"><button data-verdict="commented">✎ Comment</button><button data-verdict="approved">✓ Approve</button></footer>
+</article>
+<article class="card" id="t99-wrapup" data-section="t99-wrapup" data-kind="wrapup" data-verdict="">
+  <header>
+    <button class="play" data-section="t99-wrapup" title="Play this section">▶</button>
+    <h2>Verification and hand-over</h2>
+    
+    <span class="budget">read 1 min · listen 1 min</span>
+  </header>
+  <div class="sub sub-summary" id="t99-wrapup-summary"><h3>Summary</h3><p>The closing checks before merge: both suites after a full migration round-trip, lint, and manual checks on the dev stack that a schedule saves at both widths, two workers produce one invoice, a replayed webhook records one payment, and the October DST change keeps the 06:00 issue time. It ends with the staging permission grant and the merge request listing items awaiting product sign-off.</p></div>
+  <div class="sub sub-changes" id="t99-wrapup-changes"><h3>Changes</h3><p class="none">No files.</p></div>
+  <div class="sub sub-interfaces" id="t99-wrapup-interfaces"><h3>Interfaces</h3><dl><dt>Consumes</dt><dd><p class="none">None.</p></dd><dt>Produces</dt><dd><p class="none">None.</p></dd></dl></div>
+  <div class="sub sub-decisions" id="t99-wrapup-decisions"><h3>Decisions</h3><p class="none">None.</p></div>
+  <div class="sub sub-ui" id="t99-wrapup-ui"><h3>UI</h3><p class="none">No UI.</p></div>
+  <div class="sub sub-risks" id="t99-wrapup-risks"><h3>Risks</h3><p class="none">None.</p></div>
+  <div class="sub sub-code" id="t99-wrapup-code"><h3>Code</h3><p class="none">No code.</p></div>
+  <details class="sub sub-executor" id="t99-wrapup-executor"><summary>Executor detail</summary><div class="md" data-md="t99-wrapup"></div><script type="text/markdown" id="md-t99-wrapup">- Run both full suites in Docker: `docker exec ledgerline_api npx vitest run` and `docker exec ledgerline_web npx vitest run`, after `npx knex migrate:rollback --all` and `migrate:latest` to prove the migrations round-trip.
+- Run `npm run lint:fix` at the repository root and review any diff it leaves.
+- Open an invoice at 1280 px and at 360 px and save a monthly schedule from each layout; the dashboard forecast shows the new schedule's bars.
+- On the dev stack, scale to two workers (`docker compose up -d --scale ledgerline_worker=2`) and check that one weekly schedule starting today yields exactly one invoice after the next tick.
+- Pay that invoice through its Tollgate link, then resend the same event from the Tollgate dashboard and check that one payment row exists.
+- Set the account timezone to `Europe/Lisbon` and check that the 2026-10-25 DST change leaves the issue time at 06:00 local.
+- Run `npm run perms:grant -- recurring-billing` against staging (LL-61) and sign in as a real bookkeeper: the schedule and forecast endpoints answer 200, not 403.
+- Push the branch and open the merge request with `glab mr create --target-branch main --title "Recurring billing (LL-87)"`, its description closing LL-87 and listing the items still awaiting product sign-off.</script></details>
+  
+  <footer class="verdict"><button data-verdict="commented">✎ Comment</button><button data-verdict="approved">✓ Approve</button></footer>
+</article>
+</main>
+<footer class="foot" id="foot">
+  <span id="comment-count">0 comments</span><span id="autosave">Not saved yet</span><span id="blockers"></span>
+  <button id="submit" disabled>Submit review</button>
+</footer>
+<div id="popover" hidden>
+  <textarea id="comment-text" rows="3" placeholder="Your comment"></textarea>
+  <div class="actions"><button id="comment-prev" title="Previous comment">‹</button><button id="comment-next" title="Next comment">›</button><span class="spacer"></span><button id="comment-cancel">Cancel</button><button id="comment-save">Add comment</button></div>
+</div>
+<dialog id="lightbox"><button id="lightbox-close" title="Close (Esc)">×</button><div class="frame-fit"></div></dialog>
+<script id="review-data" type="application/json">{"round":1,"planHash":"866f37fbbc4979d591638f889f34a46dedb497ec","audioIndex":{"overview-p1":{"file":"7668ce205924dc62e9238c5e220fb780da648010.m4a","sectionId":"overview","duration":20.725},"overview-p2":{"file":"d99dc25aec5fb2c9c1d3abd4f1c80e9eb7f60151.m4a","sectionId":"overview","duration":29.875},"overview-p3":{"file":"fa3782482fdd9a9f0ded8ccb8035c2338d15043c.m4a","sectionId":"overview","duration":23.125},"overview-p4":{"file":"f11664d476146a24eb9c0fb221ebd01851017fa2.m4a","sectionId":"overview","duration":27.575},"decisions-p1":{"file":"06965216ec36159466f8b9f8fc0b11e1028a6010.m4a","sectionId":"decisions","duration":18.725},"decisions-p2":{"file":"af7ff998c3d7ec7458d07ec3de67f2f711a8c2bd.m4a","sectionId":"decisions","duration":21.475},"decisions-p3":{"file":"e197f2388209f3ce73db82660ae5f90bad2a42ae.m4a","sectionId":"decisions","duration":18.975},"decisions-p4":{"file":"7be6c176e401ab84c7a365d3865e4a36799c9537.m4a","sectionId":"decisions","duration":19.725},"decisions-p5":{"file":"9fec8937d7157758c495eca90b0e02505405aee6.m4a","sectionId":"decisions","duration":19.75},"decisions-p6":{"file":"47f3c3da7ebfba1e318c3b7ad2f45fe7de4d6e96.m4a","sectionId":"decisions","duration":18.45},"t0-preamble-p1":{"file":"3d2f9861974aab2eb74c9681c8240a4a5739c676.m4a","sectionId":"t0-preamble","duration":25.15},"t0-preamble-p2":{"file":"e0a6cf73f241f56899a627fb8e884bbdb0cdf0c8.m4a","sectionId":"t0-preamble","duration":22.8},"t0-preamble-p3":{"file":"d5a987e571521ec11074eb67901b0cdcd4210b43.m4a","sectionId":"t0-preamble","duration":23.8},"t1-recurrence-engine-p1":{"file":"ab239fcca7e0ddffcd94a44a27e03c69cb5c08f3.m4a","sectionId":"t1-recurrence-engine","duration":23},"t1-recurrence-engine-p2":{"file":"471d4cdb6672740d63dd433333908972c93259a2.m4a","sectionId":"t1-recurrence-engine","duration":20.975},"t1-recurrence-engine-p3":{"file":"29bf431febbf141cbedda7b95117e2d01423d4ac.m4a","sectionId":"t1-recurrence-engine","duration":21.225},"t1-recurrence-engine-p4":{"file":"8bd0e36da15cb4aad34192d58e4413f92478b5b4.m4a","sectionId":"t1-recurrence-engine","duration":20.475},"t1-recurrence-engine-p5":{"file":"33f5320e06135e898f17107f623e291d321e97cd.m4a","sectionId":"t1-recurrence-engine","duration":22.825},"t1-recurrence-engine-p6":{"file":"263f99b6217c8271885ba322529b99438fed586b.m4a","sectionId":"t1-recurrence-engine","duration":23.3},"t2-invoice-generation-job-p1":{"file":"4c8784d033e86c9c4f926212dda0d3c55810587e.m4a","sectionId":"t2-invoice-generation-job","duration":22.825},"t2-invoice-generation-job-p2":{"file":"64ddd18ef8e681e422c84cba11c8d152cd7ce614.m4a","sectionId":"t2-invoice-generation-job","duration":22.8},"t2-invoice-generation-job-p3":{"file":"0db9e96897aa3b1d48238b6635dae551ad1dabc8.m4a","sectionId":"t2-invoice-generation-job","duration":20.8},"t2-invoice-generation-job-p4":{"file":"5b86e1f52f0d242cec2485a5b56a69ceb88dd52e.m4a","sectionId":"t2-invoice-generation-job","duration":21.175},"t2-invoice-generation-job-p5":{"file":"caacb0016eff2112135f2693efe6bed6a7a79446.m4a","sectionId":"t2-invoice-generation-job","duration":24.05},"t2-invoice-generation-job-p6":{"file":"7f15df44ebf68dabe3c9ef45a066b85881de002e.m4a","sectionId":"t2-invoice-generation-job","duration":23.425},"t3-payment-links-tollgate-webhook-p1":{"file":"e3483fe2fa16c4a1817e5fd0dfd9c47d5a041451.m4a","sectionId":"t3-payment-links-tollgate-webhook","duration":22.525},"t3-payment-links-tollgate-webhook-p2":{"file":"5278c7e88e4eaa60676cde8f52749c81df6d4ac7.m4a","sectionId":"t3-payment-links-tollgate-webhook","duration":23.3},"t3-payment-links-tollgate-webhook-p3":{"file":"9f929d9fa6ff28f5dfb89fdf30e6783ee66fc814.m4a","sectionId":"t3-payment-links-tollgate-webhook","duration":19.475},"t3-payment-links-tollgate-webhook-p4":{"file":"136f5fb1ffccafde198d186025e03b8e30a044fd.m4a","sectionId":"t3-payment-links-tollgate-webhook","duration":23.25},"t3-payment-links-tollgate-webhook-p5":{"file":"be29074165ed32e8ce295c6226367ce2d4c064fa.m4a","sectionId":"t3-payment-links-tollgate-webhook","duration":23.45},"t4-recurrence-panel-mobile-schedule-p1":{"file":"73ea8d5dfdabac79102139852a4f4b913fe3c8ac.m4a","sectionId":"t4-recurrence-panel-mobile-schedule","duration":24.125},"t4-recurrence-panel-mobile-schedule-p2":{"file":"95134603b702b7e5e103ee4e807afbf98be7f4ae.m4a","sectionId":"t4-recurrence-panel-mobile-schedule","duration":23.325},"t4-recurrence-panel-mobile-schedule-p3":{"file":"35e1162605616658c6eac252c897b2cc184425e7.m4a","sectionId":"t4-recurrence-panel-mobile-schedule","duration":20.025},"t4-recurrence-panel-mobile-schedule-p4":{"file":"06f022047449f072849d3b5f6daf69a450ef9754.m4a","sectionId":"t4-recurrence-panel-mobile-schedule","duration":32.425},"t4-recurrence-panel-mobile-schedule-p5":{"file":"fb140e8b29f8647e99b029f241e45082012aeeb8.m4a","sectionId":"t4-recurrence-panel-mobile-schedule","duration":25.675},"t4-recurrence-panel-mobile-schedule-p6":{"file":"d771f6dd5e1a5a1132f60027f85b4070ff3d0782.m4a","sectionId":"t4-recurrence-panel-mobile-schedule","duration":20.875},"t4-recurrence-panel-mobile-schedule-p7":{"file":"8de1fa4ab757618966eab875715392766e63c98e.m4a","sectionId":"t4-recurrence-panel-mobile-schedule","duration":24.5},"t4-recurrence-panel-mobile-schedule-p8":{"file":"571fcf913fed1e1110c77c82b8ff439d87ba4386.m4a","sectionId":"t4-recurrence-panel-mobile-schedule","duration":20.175},"t5-cash-forecast-card-p1":{"file":"c645be93035efacab046bdbf415173aab910a239.m4a","sectionId":"t5-cash-forecast-card","duration":25.175},"t5-cash-forecast-card-p2":{"file":"d2fc283f7d1a41e5791d998eccf1dfe244aa87ac.m4a","sectionId":"t5-cash-forecast-card","duration":22.25},"t5-cash-forecast-card-p3":{"file":"8110a67cf085f96a73743a5310749d338e91d8e3.m4a","sectionId":"t5-cash-forecast-card","duration":36.925},"t5-cash-forecast-card-p4":{"file":"1cfe635982371e2ec6c60ec9afc8f10991ff6014.m4a","sectionId":"t5-cash-forecast-card","duration":24.8},"t99-wrapup-p1":{"file":"a974eb41b1c06eaf581a73a8574bd5f980987b7d.m4a","sectionId":"t99-wrapup","duration":27.025}},"prefill":{},"previousResolutions":{},"changed":[],"intro":[{"id":"overview","narration":[{"id":"overview-p1","target":"goal"},{"id":"overview-p2","target":"architecture"},{"id":"overview-p3","target":"techStack"},{"id":"overview-p4","target":"taskMap"}]},{"id":"decisions","narration":[{"id":"decisions-p1","target":"d1"},{"id":"decisions-p2","target":"d2"},{"id":"decisions-p3","target":"d3"},{"id":"decisions-p4","target":"d4"},{"id":"decisions-p5","target":"d5"},{"id":"decisions-p6","target":"d6"}]}],"sections":[{"id":"t0-preamble","narration":[{"id":"t0-preamble-p1","target":"summary"},{"id":"t0-preamble-p2","target":"interfaces"},{"id":"t0-preamble-p3","target":"risks"}]},{"id":"t1-recurrence-engine","narration":[{"id":"t1-recurrence-engine-p1","target":"summary"},{"id":"t1-recurrence-engine-p2","target":"interfaces"},{"id":"t1-recurrence-engine-p3","target":"decisions"},{"id":"t1-recurrence-engine-p4","target":"risks"},{"id":"t1-recurrence-engine-p5","target":"t1-recurrence-engine-b1"},{"id":"t1-recurrence-engine-p6","target":"t1-recurrence-engine-b2"}]},{"id":"t2-invoice-generation-job","narration":[{"id":"t2-invoice-generation-job-p1","target":"summary"},{"id":"t2-invoice-generation-job-p2","target":"interfaces"},{"id":"t2-invoice-generation-job-p3","target":"decisions"},{"id":"t2-invoice-generation-job-p4","target":"risks"},{"id":"t2-invoice-generation-job-p5","target":"t2-invoice-generation-job-b1"},{"id":"t2-invoice-generation-job-p6","target":"t2-invoice-generation-job-b2"}]},{"id":"t3-payment-links-tollgate-webhook","narration":[{"id":"t3-payment-links-tollgate-webhook-p1","target":"summary"},{"id":"t3-payment-links-tollgate-webhook-p2","target":"interfaces"},{"id":"t3-payment-links-tollgate-webhook-p3","target":"decisions"},{"id":"t3-payment-links-tollgate-webhook-p4","target":"t3-payment-links-tollgate-webhook-b1"},{"id":"t3-payment-links-tollgate-webhook-p5","target":"t3-payment-links-tollgate-webhook-b2"}]},{"id":"t4-recurrence-panel-mobile-schedule","narration":[{"id":"t4-recurrence-panel-mobile-schedule-p1","target":"summary"},{"id":"t4-recurrence-panel-mobile-schedule-p2","target":"interfaces"},{"id":"t4-recurrence-panel-mobile-schedule-p3","target":"decisions"},{"id":"t4-recurrence-panel-mobile-schedule-p4","target":"t4-recurrence-panel-mobile-schedule-ui1"},{"id":"t4-recurrence-panel-mobile-schedule-p5","target":"t4-recurrence-panel-mobile-schedule-ui2"},{"id":"t4-recurrence-panel-mobile-schedule-p6","target":"risks"},{"id":"t4-recurrence-panel-mobile-schedule-p7","target":"t4-recurrence-panel-mobile-schedule-b1"},{"id":"t4-recurrence-panel-mobile-schedule-p8","target":"t4-recurrence-panel-mobile-schedule-b2"}]},{"id":"t5-cash-forecast-card","narration":[{"id":"t5-cash-forecast-card-p1","target":"summary"},{"id":"t5-cash-forecast-card-p2","target":"interfaces"},{"id":"t5-cash-forecast-card-p3","target":"t5-cash-forecast-card-ui1"},{"id":"t5-cash-forecast-card-p4","target":"t5-cash-forecast-card-b1"}]},{"id":"t99-wrapup","narration":[{"id":"t99-wrapup-p1","target":"summary"}]}],"decisions":[{"id":"d1"},{"id":"d2"},{"id":"d3"},{"id":"d4"},{"id":"d5"},{"id":"d6"}]}</script>
+<script>
+// Demo transport: the draft lives in localStorage and Submit shows the submission instead of handing it to Claude.
+(() => {
+  const KEY = 'plan-review-demo-draft';
+  const json = (body, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } }));
+  const read = () => { try { return localStorage.getItem(KEY); } catch { return null; } };
+  const write = (value) => { try { localStorage.setItem(KEY, value); } catch {} };
+  const reset = () => { try { localStorage.removeItem(KEY); } catch {} location.reload(); };
+  const nativeFetch = window.fetch.bind(window);
+
+  window.fetch = (input, init = {}) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (url === 'draft.json') { const draft = read(); return draft ? json(JSON.parse(draft)) : Promise.resolve(new Response('', { status: 404 })); }
+    if (url === '/draft' && init.method === 'POST') { write(init.body); return json({ ok: true }); }
+    if (url === '/submit' && init.method === 'POST') { setTimeout(() => showSubmission(init.body), 0); return json({ ok: true }); }
+    return nativeFetch(input, init);
+  };
+
+  function showSubmission(body) {
+    const submission = JSON.parse(body);
+    const pretty = JSON.stringify(submission, null, 2);
+    const dialog = document.createElement('dialog');
+    dialog.id = 'demo-submission';
+    dialog.innerHTML = `
+      <h2>What Claude receives</h2>
+      <p>On a real review this JSON lands in the plan's review folder and the <code>plan-review-respond</code> skill answers every comment, resolves the decisions, revises the plan and opens round 2 with the changed sections badged.</p>
+      <pre></pre>
+      <div class="actions"><a download="submission.json">Download JSON</a><button type="button" class="again">Start over</button><button type="button" class="close">Close</button></div>`;
+    dialog.querySelector('pre').textContent = pretty;
+    dialog.querySelector('a').href = URL.createObjectURL(new Blob([`${pretty}\n`], { type: 'application/json' }));
+    dialog.querySelector('.again').addEventListener('click', reset);
+    dialog.querySelector('.close').addEventListener('click', () => dialog.close());
+    dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+    document.body.append(dialog);
+    dialog.showModal();
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('demo-reset')?.addEventListener('click', (e) => { e.preventDefault(); reset(); });
+  });
+})();
+</script>
+<script type="module">
+function buildQueue(sections) {
+  return sections.flatMap((s) => s.narration.map((p) => ({ id: p.id, sectionId: s.id, target: p.target })));
+}
+
+function initialState(sections, decisions, prefill = {}, previousResolutions = {}, round = 1) {
+  return {
+    round,
+    sections: Object.fromEntries(sections.map((s) => [s.id, { verdict: prefill[s.id] ?? null, heard: false }])),
+    decisions: Object.fromEntries(decisions.map((d) => [d.id, { resolution: previousResolutions[d.id] ?? null }])),
+    heardIntro: [],
+    comments: [],
+    nextComment: 1,
+    scroll: 0,
+  };
+}
+
+function mergeDraft(state, draft) {
+  if (!draft || draft.round !== state.round) return state;
+  for (const [id, v] of Object.entries(draft.sections ?? {})) if (state.sections[id]) state.sections[id] = { verdict: v.verdict ?? null, heard: Boolean(v.heard) };
+  for (const [id, d] of Object.entries(draft.decisions ?? {})) if (state.decisions[id]) state.decisions[id] = { resolution: d.resolution ?? null };
+  state.heardIntro = [...new Set(draft.heardIntro ?? [])];
+  state.comments = (draft.comments ?? []).filter((c) => state.sections[c.anchor?.sectionId]);
+  state.nextComment = draft.nextComment ?? state.comments.length + 1;
+  state.scroll = draft.scroll ?? 0;
+  return state;
+}
+
+const plural = (n, noun) => `${n} ${noun}${n === 1 ? '' : 's'}`;
+
+function submitBlockers(sections, decisions, state) {
+  const blockers = [];
+  const noVerdict = sections.filter((s) => !state.sections[s.id]?.verdict).length;
+  if (noVerdict) blockers.push(`${plural(noVerdict, 'section')} without a verdict`);
+  const open = decisions.filter((d) => !state.decisions[d.id]?.resolution).length;
+  if (open) blockers.push(`${plural(open, 'open decision')}`);
+  const orphaned = sections.filter((s) => state.sections[s.id]?.verdict === 'commented' && !state.comments.some((c) => c.anchor.sectionId === s.id)).length;
+  if (orphaned) blockers.push(`${plural(orphaned, 'commented section')} without a comment`);
+  return blockers;
+}
+
+function counters(sections, decisions, state) {
+  const by = (v) => sections.filter((s) => state.sections[s.id]?.verdict === v).length;
+  return { approved: by('approved'), commented: by('commented'), openDecisions: decisions.filter((d) => !state.decisions[d.id]?.resolution).length };
+}
+
+function outcome(sections, state) {
+  const allApproved = sections.every((s) => state.sections[s.id]?.verdict === 'approved');
+  return allApproved && state.comments.length === 0 ? 'approved' : 'changes-requested';
+}
+
+function buildSubmission({ round, planHash, sections, decisions, state, now }) {
+  return {
+    schema: 1,
+    round,
+    planHash,
+    submittedAt: now,
+    outcome: outcome(sections, state),
+    sections: Object.fromEntries(sections.map((s) => [s.id, { verdict: state.sections[s.id].verdict, heard: state.sections[s.id].heard }])),
+    decisions: Object.fromEntries(decisions.map((d) => [d.id, { resolution: state.decisions[d.id].resolution }])),
+    comments: state.comments,
+  };
+}
+
+function anchorFromSelection({ text, before, after }) {
+  return { quote: text, prefix: before.slice(-10), suffix: after.slice(0, 10) };
+}
+
+function sectionOrder(sections, currentId, delta) {
+  const ids = sections.map((s) => s.id);
+  const index = ids.indexOf(currentId);
+  if (index < 0) return delta > 0 ? ids[0] : ids[ids.length - 1];
+  return ids[Math.min(ids.length - 1, Math.max(0, index + delta))];
+}
+
+const data = JSON.parse(document.getElementById('review-data').textContent);
+const { sections, decisions, audioIndex } = data;
+const intro = data.intro ?? [];
+const played = [...intro, ...sections];
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+
+const transport = {
+  async loadDraft() {
+    const res = await fetch('draft.json', { cache: 'no-store' });
+    return res.ok ? res.json() : null;
+  },
+  saveDraft: (state) => fetch('/draft', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(state) }),
+  submit: (payload) => fetch('/submit', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) }),
+};
+
+let state = initialState(sections, decisions, data.prefill, data.previousResolutions, data.round);
+let saveTimer = null;
+let currentSection = null;
+let submitted = false;
+
+function persist() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try {
+      await transport.saveDraft(state);
+      $('#autosave').textContent = `Saved ${new Date().toLocaleTimeString()}`;
+    } catch {
+      $('#autosave').textContent = 'Not saved: server unreachable';
+    }
+  }, 400);
+}
+
+function sync() {
+  for (const card of $$('article.card')) {
+    const s = state.sections[card.dataset.section];
+    card.dataset.verdict = s.verdict ?? '';
+    card.dataset.heard = String(s.heard);
+    if (s.verdict !== 'approved') delete card.dataset.collapsed;
+    for (const b of $$('footer.verdict button', card)) b.classList.toggle('active', b.dataset.verdict === s.verdict);
+    let list = $('.comments', card);
+    if (!list) {
+      list = document.createElement('div');
+      list.className = 'comments';
+      $('footer.verdict', card).before(list);
+    }
+    list.innerHTML = state.comments
+      .filter((c) => c.anchor.sectionId === card.dataset.section)
+      .map((c) => `<div class="pin" data-comment="${c.id}">${c.anchor.scope === 'section' ? '<span class="scope">Section</span>' : `<q>${escape(c.anchor.quote)}</q>`} ${escape(c.text)} <button class="remove" data-comment="${c.id}" title="Remove">×</button></div>`)
+      .join('');
+  }
+  for (const row of $$('.decision')) {
+    const d = state.decisions[row.dataset.decision];
+    row.dataset.resolved = String(Boolean(d.resolution));
+  }
+  for (const seg of $$('#progress .seg')) {
+    const s = state.sections[seg.dataset.section];
+    const heard = s ? s.heard : state.heardIntro.includes(seg.dataset.section);
+    if (s) seg.dataset.verdict = s.verdict ?? '';
+    if (seg.dataset.playing !== 'true') $('.fill', seg).style.width = heard ? '100%' : '0';
+  }
+  const c = counters(sections, decisions, state);
+  $('#count-approved').textContent = `${c.approved} approved`;
+  $('#count-commented').textContent = `${c.commented} commented`;
+  $('#count-decisions').textContent = `${c.openDecisions} open decision${c.openDecisions === 1 ? '' : 's'}`;
+  $('#comment-count').textContent = `${state.comments.length} comment${state.comments.length === 1 ? '' : 's'}`;
+  const blockers = submitBlockers(sections, decisions, state);
+  $('#blockers').textContent = blockers.join(' · ');
+  $('#submit').disabled = blockers.length > 0;
+}
+
+const escape = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]);
+
+function setVerdict(sectionId, verdict) {
+  if (submitted) return;
+  state.sections[sectionId].verdict = state.sections[sectionId].verdict === verdict ? null : verdict;
+  sync();
+  persist();
+}
+
+// ---------- current section tracking ----------
+function setCurrentSection(sectionId) {
+  if (!sectionId || sectionId === currentSection) return;
+  if (currentSection) delete document.getElementById(currentSection).dataset.current;
+  currentSection = sectionId;
+  document.getElementById(currentSection).dataset.current = 'true';
+}
+
+const cards = $$('article.card');
+let scrollTick = false;
+function pickCurrentSection() {
+  scrollTick = false;
+  const line = $('#bar').getBoundingClientRect().bottom + 24;
+  let best = cards[0];
+  for (const card of cards) if (card.getBoundingClientRect().top <= line) best = card;
+  if (best) setCurrentSection(best.dataset.section);
+}
+window.addEventListener('scroll', () => { if (!scrollTick) { scrollTick = true; requestAnimationFrame(pickCurrentSection); } }, { passive: true });
+
+// ---------- audio ----------
+const queue = buildQueue(played).filter((p) => audioIndex[p.id]);
+let clockTotal = 0;
+for (const p of queue) { p.start = clockTotal; p.duration = audioIndex[p.id].duration; clockTotal += p.duration; }
+const sectionSpan = (sectionId) => {
+  const own = queue.filter((q) => q.sectionId === sectionId);
+  return own.length ? { start: own[0].start, duration: own.reduce((s, q) => s + q.duration, 0) } : null;
+};
+const fmtClock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const player = new Audio();
+let cursor = -1;
+let speaking = null;
+let pendingSeek = 0;
+
+const targetElement = (p) => {
+  if (p.sectionId === 'overview') return document.getElementById(`overview-${p.target}`);
+  if (p.sectionId === 'decisions') return document.getElementById(`decision-${p.target}`);
+  return document.getElementById(['summary', 'interfaces', 'decisions', 'risks', 'ui'].includes(p.target) ? `${p.sectionId}-${p.target}` : p.target);
+};
+
+function playIndex(i, offset = 0) {
+  if (i < 0 || i >= queue.length) return stop();
+  cursor = i;
+  const p = queue[i];
+  pendingSeek = offset;
+  player.src = `audio/${audioIndex[p.id].file}`;
+  player.playbackRate = Number($('#speed').value);
+  player.play();
+  speaking?.classList.remove('speaking');
+  speaking = targetElement(p);
+  speaking?.classList.add('speaking');
+  const card = document.getElementById(p.sectionId);
+  delete card.dataset.collapsed;
+  if (!interacting()) speaking?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  if (state.sections[p.sectionId]) setCurrentSection(p.sectionId);
+  $('#now').textContent = $('h2', card).textContent.replace(/^▶\s*/, '');
+  $('#toggle').textContent = '⏸';
+  const own = queue.filter((q) => q.sectionId === p.sectionId);
+  const seg = $$('#progress .seg').find((el) => el.dataset.section === p.sectionId);
+  for (const el of $$('#progress .seg[data-playing]')) if (el !== seg) delete el.dataset.playing;
+  seg.dataset.playing = 'true';
+  updateProgress();
+}
+
+function updateProgress() {
+  if (cursor < 0) return;
+  const p = queue[cursor];
+  const span = sectionSpan(p.sectionId);
+  const within = p.start - span.start + Math.min(player.currentTime || 0, p.duration);
+  const seg = $$('#progress .seg').find((el) => el.dataset.section === p.sectionId);
+  if (seg) $('.fill', seg).style.width = `${Math.min(100, (within / span.duration) * 100)}%`;
+  $('#clock').textContent = `${fmtClock(p.start + (player.currentTime || 0))} / ${fmtClock(clockTotal)}`;
+}
+
+function seekTo(seconds) {
+  const i = queue.findIndex((p) => seconds < p.start + p.duration);
+  if (i < 0) return stop();
+  playIndex(i, Math.max(0, seconds - queue[i].start));
+}
+
+player.addEventListener('loadedmetadata', () => { if (pendingSeek) { player.currentTime = pendingSeek; pendingSeek = 0; } });
+player.addEventListener('timeupdate', updateProgress);
+
+function stop() {
+  player.pause();
+  for (const el of $$('#progress .seg[data-playing]')) delete el.dataset.playing;
+  speaking?.classList.remove('speaking');
+  speaking = null;
+  $('#toggle').textContent = '▶';
+  $('#now').textContent = 'Not playing';
+}
+
+player.addEventListener('ended', () => {
+  const p = queue[cursor];
+  const next = queue[cursor + 1];
+  const boundary = !next || next.sectionId !== p.sectionId;
+  if (boundary) {
+    if (state.sections[p.sectionId]) state.sections[p.sectionId].heard = true;
+    else if (!state.heardIntro.includes(p.sectionId)) state.heardIntro.push(p.sectionId);
+    for (const el of $$('#progress .seg[data-playing]')) delete el.dataset.playing;
+    sync();
+    persist();
+  }
+  if (boundary && $('#stop-at-end').checked) return stop();
+  playIndex(cursor + 1);
+});
+
+const skip = (delta) => { if (cursor >= 0) seekTo(Math.max(0, queue[cursor].start + (player.currentTime || 0) + delta)); };
+$('#back').addEventListener('click', () => skip(-15));
+$('#fwd').addEventListener('click', () => skip(15));
+for (const b of $$('#chapters .chapter')) b.addEventListener('click', () => playSection(b.dataset.section));
+
+const playSection = (sectionId) => {
+  if (!sectionId) return;
+  const i = queue.findIndex((p) => p.sectionId === sectionId);
+  if (i >= 0) playIndex(i);
+  else document.getElementById(sectionId).scrollIntoView({ block: 'start', behavior: 'smooth' });
+};
+
+$('#toggle').addEventListener('click', () => {
+  if (!player.paused) return stop();
+  if (cursor >= 0 && player.src) {
+    player.play();
+    $('#toggle').textContent = '⏸';
+    speaking = targetElement(queue[cursor]);
+    speaking?.classList.add('speaking');
+  } else playIndex(0);
+});
+const playingSection = () => (cursor >= 0 ? queue[cursor].sectionId : currentSection);
+$('#prev').addEventListener('click', () => playSection(sectionOrder(played, playingSection(), -1)));
+$('#next').addEventListener('click', () => playSection(sectionOrder(played, playingSection(), 1)));
+$('#speed').addEventListener('input', (e) => {
+  player.playbackRate = Number(e.target.value);
+  $('#speed-value').textContent = `${Number(e.target.value).toFixed(1)}×`;
+});
+function nudgeSpeed(delta) {
+  const input = $('#speed');
+  input.value = Math.min(Number(input.max), Math.max(Number(input.min), Number(input.value) + delta)).toFixed(1);
+  input.dispatchEvent(new Event('input'));
+}
+for (const b of $$('button.play')) b.addEventListener('click', () => playSection(b.dataset.section));
+for (const seg of $$('#progress .seg')) {
+  seg.addEventListener('click', (e) => {
+    const span = sectionSpan(seg.dataset.section);
+    if (!span) return playSection(seg.dataset.section);
+    const rect = seg.getBoundingClientRect();
+    const fraction = Math.min(0.98, Math.max(0, (e.clientX - rect.left) / rect.width));
+    seekTo(span.start + fraction * span.duration);
+  });
+}
+
+// ---------- verdicts, decisions, cards ----------
+const commentButton = (sectionId) => $('footer.verdict button[data-verdict=commented]', document.getElementById(sectionId));
+
+function askForComment(sectionId) {
+  if (submitted) return;
+  if (commentOnSelection(sectionId)) return;
+  const card = document.getElementById(sectionId);
+  openPopover({ anchor: { sectionId, quote: $('h2', card).textContent.trim(), prefix: '', suffix: '', scope: 'section' }, near: commentButton(sectionId) });
+}
+
+for (const b of $$('footer.verdict button')) {
+  b.addEventListener('click', () => {
+    const sectionId = b.closest('article').dataset.section;
+    if (b.dataset.verdict === 'approved') setVerdict(sectionId, 'approved');
+    else askForComment(sectionId);
+  });
+}
+for (const input of $$('.decision input')) {
+  input.addEventListener('change', () => {
+    if (submitted) return;
+    const id = input.closest('.decision').dataset.decision;
+    state.decisions[id].resolution = input.value.trim() || null;
+    sync();
+    persist();
+  });
+}
+for (const header of $$('article.card > header')) {
+  header.addEventListener('click', (e) => {
+    if (e.target.closest('button')) return;
+    const card = header.parentElement;
+    if (card.dataset.collapsed) delete card.dataset.collapsed;
+    else if (state.sections[card.dataset.section].verdict === 'approved') card.dataset.collapsed = 'true';
+  });
+}
+document.addEventListener('click', (e) => {
+  if (submitted) return;
+  const remove = e.target.closest('button.remove');
+  if (remove) {
+    const gone = state.comments.find((c) => c.id === remove.dataset.comment);
+    state.comments = state.comments.filter((c) => c.id !== remove.dataset.comment);
+    if (pending?.editing === remove.dataset.comment) closePopover();
+    if (gone) refreshVerdict(gone.anchor.sectionId);
+    sync();
+    persist();
+    return;
+  }
+  const pin = e.target.closest('.pin');
+  if (pin) editComment(pin.dataset.comment);
+});
+
+// ---------- comments ----------
+const popover = $('#popover');
+let pending = null;
+const highlights = window.Highlight && window.CSS?.highlights ? CSS.highlights : null;
+const sectionIndex = new Map(sections.map((s, i) => [s.id, i]));
+
+const interacting = () => !popover.hidden || !(window.getSelection()?.isCollapsed ?? true);
+const markRange = (range) => { if (highlights && range) highlights.set('review-selection', new Highlight(range)); };
+const clearMark = () => highlights?.delete('review-selection');
+const orderedComments = () => [...state.comments].sort((a, b) => (sectionIndex.get(a.anchor.sectionId) - sectionIndex.get(b.anchor.sectionId)) || (Number(a.id.slice(1)) - Number(b.id.slice(1))));
+
+function placePopover(near) {
+  const rect = near.getBoundingClientRect();
+  popover.style.top = `${window.scrollY + rect.bottom + 8}px`;
+  popover.style.left = `${Math.max(16, Math.min(window.scrollX + rect.left, window.scrollX + window.innerWidth - 340))}px`;
+}
+
+function updatePopoverNav() {
+  const list = orderedComments();
+  const i = pending?.editing ? list.findIndex((c) => c.id === pending.editing) : -1;
+  $('#comment-prev').disabled = i <= 0;
+  $('#comment-next').disabled = i < 0 || i >= list.length - 1;
+}
+
+function openPopover({ anchor, near, text = '', editing = null }) {
+  pending = { anchor, editing };
+  $('#comment-text').value = text;
+  $('#comment-save').textContent = editing ? 'Save' : 'Add comment';
+  popover.hidden = false;
+  placePopover(near);
+  updatePopoverNav();
+  requestAnimationFrame(() => popover.classList.add('open'));
+  $('#comment-text').focus();
+}
+
+function closePopover() {
+  popover.classList.remove('open');
+  pending = null;
+  clearMark();
+  window.getSelection()?.removeAllRanges();
+  setTimeout(() => { if (!pending) popover.hidden = true; }, 180);
+}
+
+function refreshVerdict(sectionId) {
+  const own = state.comments.filter((c) => c.anchor.sectionId === sectionId);
+  const section = state.sections[sectionId];
+  if (own.length) section.verdict = 'commented';
+  else if (section.verdict !== 'approved') section.verdict = null;
+}
+
+function saveComment() {
+  if (submitted || !pending) return;
+  const text = $('#comment-text').value.trim();
+  if (!text) return;
+  const { anchor, editing } = pending;
+  if (editing) state.comments.find((x) => x.id === editing).text = text;
+  else state.comments.push({ id: `c${state.nextComment++}`, text, anchor });
+  refreshVerdict(anchor.sectionId);
+  closePopover();
+  sync();
+  persist();
+}
+
+function anchorFromRange(range) {
+  const card = range.commonAncestorContainer.parentElement?.closest('article.card');
+  if (!card) return null;
+  const before = document.createRange();
+  before.selectNodeContents(card);
+  before.setEnd(range.startContainer, range.startOffset);
+  const after = document.createRange();
+  after.selectNodeContents(card);
+  after.setStart(range.endContainer, range.endOffset);
+  const anchor = { sectionId: card.dataset.section, ...anchorFromSelection({ text: range.toString().trim(), before: before.toString(), after: after.toString() }), scope: 'text' };
+  const block = range.commonAncestorContainer.parentElement?.closest('details.block');
+  if (block) anchor.blockId = block.id;
+  const ui = range.commonAncestorContainer.parentElement?.closest('figure.mockup');
+  if (ui) anchor.uiId = ui.dataset.ui;
+  return anchor;
+}
+
+function rangeFromAnchor(card, anchor) {
+  const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  const starts = [];
+  let text = '';
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    nodes.push(n);
+    starts.push(text.length);
+    text += n.data;
+  }
+  const exact = text.indexOf(anchor.prefix + anchor.quote + anchor.suffix);
+  const offset = exact >= 0 ? exact + anchor.prefix.length : text.indexOf(anchor.quote);
+  if (offset < 0 || !anchor.quote) return null;
+  const locate = (pos) => {
+    let i = starts.findLastIndex((s) => s <= pos);
+    if (i < 0) i = 0;
+    return [nodes[i], Math.min(pos - starts[i], nodes[i].data.length)];
+  };
+  const range = document.createRange();
+  range.setStart(...locate(offset));
+  range.setEnd(...locate(offset + anchor.quote.length));
+  return range;
+}
+
+const rangeBox = (range) => ({ getBoundingClientRect: () => range.getBoundingClientRect() });
+
+function commentOnSelection(sectionId = null) {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !sel.toString().trim()) return false;
+  const range = sel.getRangeAt(0);
+  const anchor = anchorFromRange(range);
+  if (!anchor || (sectionId && anchor.sectionId !== sectionId)) return false;
+  markRange(range);
+  openPopover({ anchor, near: range.getBoundingClientRect().height ? rangeBox(range) : range.startContainer.parentElement });
+  return true;
+}
+
+function editComment(id) {
+  if (submitted) return;
+  const c = state.comments.find((x) => x.id === id);
+  if (!c) return;
+  const card = document.getElementById(c.anchor.sectionId);
+  delete card.dataset.collapsed;
+  clearMark();
+  let near = commentButton(c.anchor.sectionId);
+  const range = c.anchor.scope === 'section' ? null : rangeFromAnchor(card, c.anchor);
+  if (range) {
+    markRange(range);
+    near = rangeBox(range);
+    range.startContainer.parentElement?.scrollIntoView({ block: 'center' });
+  } else card.scrollIntoView({ block: 'center' });
+  openPopover({ anchor: c.anchor, near, text: c.text, editing: id });
+}
+
+function moveComment(delta) {
+  const list = orderedComments();
+  const i = list.findIndex((c) => c.id === pending?.editing);
+  const target = list[i + delta];
+  if (!target) return;
+  if ($('#comment-text').value.trim()) saveComment();
+  else closePopover();
+  editComment(target.id);
+}
+
+document.addEventListener('mouseup', (e) => {
+  if (submitted) return;
+  if (!(e.target instanceof Element) || popover.contains(e.target) || e.target.closest('button, input, select, textarea')) return;
+  setTimeout(() => { if (popover.hidden) commentOnSelection(); }, 0);
+});
+for (const b of $$('button.comment-ui')) {
+  b.addEventListener('click', () => {
+    if (submitted) return;
+    const figure = b.closest('figure.mockup');
+    openPopover({ anchor: { sectionId: b.closest('article').dataset.section, quote: $('figcaption', figure).firstChild.textContent.trim(), prefix: '', suffix: '', scope: 'section', uiId: b.dataset.ui }, near: b });
+  });
+}
+$('#comment-prev').addEventListener('click', () => moveComment(-1));
+$('#comment-next').addEventListener('click', () => moveComment(1));
+$('#comment-cancel').addEventListener('click', closePopover);
+$('#comment-save').addEventListener('click', saveComment);
+
+// ---------- keyboard ----------
+const SHORTCUTS = {
+  'Space': () => $('#toggle').click(),
+  'Shift+Space': () => playSection(playingSection()),
+  'Shift+ArrowLeft': () => skip(-15),
+  'Shift+ArrowRight': () => skip(15),
+  'Shift+ArrowUp': () => $('#prev').click(),
+  'Shift+ArrowDown': () => $('#next').click(),
+  'Alt+ArrowLeft': () => nudgeSpeed(-0.1),
+  'Alt+ArrowRight': () => nudgeSpeed(0.1),
+};
+document.addEventListener('keydown', (e) => {
+  if (submitted) return;
+  if (e.key === 'Escape') return closePopover();
+  if (e.metaKey || e.ctrlKey || (e.target instanceof Element && e.target.closest('input, textarea, select'))) return;
+  const action = SHORTCUTS[`${e.shiftKey ? 'Shift+' : ''}${e.altKey ? 'Alt+' : ''}${e.key === ' ' ? 'Space' : e.key}`];
+  if (!action) return;
+  e.preventDefault();
+  action();
+});
+
+// ---------- submit ----------
+$('#submit').addEventListener('click', async () => {
+  const payload = buildSubmission({ round: data.round, planHash: data.planHash, sections, decisions, state, now: new Date().toISOString() });
+  $('#submit').disabled = true;
+  try {
+    const res = await transport.submit(payload);
+    if (!res.ok) throw new Error(await res.text());
+    stop();
+    submitted = true;
+    $('#blockers').textContent = `Review submitted (${payload.outcome}). You can close this tab.`;
+    $('#blockers').classList.add('done');
+    $('#submit').hidden = true;
+    for (const el of $$('button, input, textarea, select')) el.disabled = true;
+  } catch (err) {
+    $('#blockers').textContent = `Submit failed: ${err.message}`;
+    $('#submit').disabled = false;
+  }
+});
+
+// ---------- mockups: fit to the card, full size in a lightbox ----------
+function fitFrame(fit, frame, maxWidth, maxHeight = Infinity) {
+  frame.style.transform = '';
+  const w = frame.offsetWidth;
+  const h = frame.offsetHeight;
+  if (!w || !h) return;
+  const k = Math.min(1, maxWidth / w, maxHeight / h);
+  frame.style.transform = k < 1 ? `scale(${k})` : '';
+  fit.style.width = `${Math.round(w * k)}px`;
+  fit.style.height = `${Math.round(h * k)}px`;
+}
+const mockupFits = $$('figure.mockup .frame-fit');
+const fitMockups = () => { for (const fit of mockupFits) fitFrame(fit, $('.frame', fit), fit.parentElement.clientWidth); };
+if (window.ResizeObserver) {
+  const observer = new ResizeObserver(fitMockups);
+  for (const fit of mockupFits) observer.observe(fit.parentElement);
+} else window.addEventListener('resize', fitMockups);
+const lightbox = $('#lightbox');
+function openLightbox(frame) {
+  const fit = $('.frame-fit', lightbox);
+  fit.innerHTML = '';
+  const clone = frame.cloneNode(true);
+  clone.style.transform = '';
+  clone.removeAttribute('title');
+  fit.append(clone);
+  lightbox.showModal();
+  fitFrame(fit, clone, window.innerWidth - 48, window.innerHeight - 48);
+}
+for (const fit of mockupFits) {
+  $('.frame', fit).addEventListener('click', () => {
+    if (!(window.getSelection()?.isCollapsed ?? true)) return;
+    openLightbox($('.frame', fit));
+  });
+}
+$('#lightbox-close').addEventListener('click', () => lightbox.close());
+lightbox.addEventListener('click', (e) => { if (e.target === lightbox) lightbox.close(); });
+window.addEventListener('resize', () => { if (lightbox.open) fitFrame($('.frame-fit', lightbox), $('.frame', lightbox), window.innerWidth - 48, window.innerHeight - 48); });
+
+// ---------- task map: pan, zoom, fullscreen ----------
+let fitTaskMap = () => {};
+const taskmap = $('#taskmap');
+if (taskmap) {
+  const view = $('.taskmap-view', taskmap);
+  const canvas = $('.taskmap-canvas', taskmap);
+  let scale = 1;
+  let tx = 0;
+  let ty = 0;
+  let drag = null;
+  const apply = () => { canvas.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`; };
+  fitTaskMap = () => {
+    const cw = canvas.scrollWidth || 1;
+    const ch = canvas.scrollHeight || 1;
+    scale = Math.min(view.clientWidth / cw, view.clientHeight / ch, 2);
+    tx = (view.clientWidth - cw * scale) / 2;
+    ty = (view.clientHeight - ch * scale) / 2;
+    apply();
+  };
+  view.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const rect = view.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const next = Math.min(6, Math.max(0.2, scale * (e.deltaY < 0 ? 1.1 : 0.9)));
+    tx = px - (px - tx) * (next / scale);
+    ty = py - (py - ty) * (next / scale);
+    scale = next;
+    apply();
+  }, { passive: false });
+  view.addEventListener('pointerdown', (e) => { drag = { x: e.clientX - tx, y: e.clientY - ty }; view.setPointerCapture(e.pointerId); });
+  view.addEventListener('pointermove', (e) => { if (!drag) return; tx = e.clientX - drag.x; ty = e.clientY - drag.y; apply(); });
+  view.addEventListener('pointerup', () => { drag = null; });
+  view.addEventListener('pointercancel', () => { drag = null; });
+  $('[data-taskmap="fit"]', taskmap).addEventListener('click', fitTaskMap);
+  $('[data-taskmap="full"]', taskmap).addEventListener('click', () => (document.fullscreenElement ? document.exitFullscreen() : taskmap.requestFullscreen()));
+  document.addEventListener('fullscreenchange', () => setTimeout(fitTaskMap, 60));
+}
+
+// ---------- boot ----------
+for (const md of $$('script[type="text/markdown"]')) {
+  const target = $(`.md[data-md="${md.id.slice(3)}"]`);
+  if (target && window.marked) target.innerHTML = marked.parse(md.textContent);
+}
+if (window.hljs) for (const code of $$('details.block pre code, .md pre code')) hljs.highlightElement(code);
+// ---------- theme ----------
+const systemDark = matchMedia('(prefers-color-scheme: dark)');
+const THEME_COOKIE = 'plan-review-theme';
+const readTheme = () => document.cookie.match(new RegExp(`(?:^|; )${THEME_COOKIE}=(system|light|dark)`))?.[1] ?? 'system';
+const isDark = () => document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && systemDark.matches);
+const diagram = $('pre.mermaid');
+const diagramSource = diagram?.textContent ?? '';
+let diagramDark = null;
+function drawDiagram() {
+  if (!window.mermaid || !diagram || diagramDark === isDark()) return;
+  diagramDark = isDark();
+  diagram.textContent = diagramSource;
+  delete diagram.dataset.processed;
+  mermaid.initialize({ startOnLoad: false, theme: diagramDark ? 'dark' : 'default', flowchart: { useMaxWidth: false } });
+  mermaid.run().then(fitTaskMap);
+}
+function applyTheme(choice) {
+  if (choice === 'light' || choice === 'dark') document.documentElement.dataset.theme = choice;
+  else delete document.documentElement.dataset.theme;
+  document.cookie = `${THEME_COOKIE}=${choice}; path=/; max-age=31536000; SameSite=Lax`;
+  for (const b of $$('#theme button')) b.classList.toggle('active', b.dataset.theme === choice);
+  drawDiagram();
+}
+for (const b of $$('#theme button')) b.addEventListener('click', () => applyTheme(b.dataset.theme));
+applyTheme(readTheme());
+systemDark.addEventListener('change', drawDiagram);
+window.addEventListener('scroll', () => { state.scroll = window.scrollY; persist(); }, { passive: true });
+
+$('#clock').textContent = `0:00 / ${fmtClock(clockTotal)}`;
+(async () => {
+  try { state = mergeDraft(state, await transport.loadDraft()); } catch {}
+  sync();
+  for (const row of $$('.decision')) {
+    const value = state.decisions[row.dataset.decision].resolution;
+    if (!value) continue;
+    for (const input of $$('input', row)) {
+      if (input.type === 'radio') input.checked = input.value === value;
+      else input.value = value;
+    }
+  }
+  if (state.scroll) window.scrollTo(0, state.scroll);
+})();
+
+</script>
+</body>
+</html>
