@@ -2,6 +2,8 @@
 
 Claude Code plugin: review an implementation plan in the browser instead of reading 2,000 lines of executor detail.
 
+**[Try the demo](https://primestack-labs.github.io/plan-review/)**: the review page for the five-task sample plan, narrated, with approvals and comments kept in your browser.
+
 `/plan-review path/to/plan.md` builds a reviewer's projection (goal, interfaces, decisions, UI mockups, risks; code and steps collapsed), narrates it paragraph by paragraph, opens the page, and waits. Approve or comment on each section, resolve the decisions, press Submit; Claude answers every comment, revises the plan, and opens the next round with changed sections badged.
 
 Any markdown plan works: the projection is built from the plan's headings, file lists, code blocks and prose. Plans in the [superpowers](https://github.com/obra/superpowers) writing-plans format and Claude Code plan-mode files are recognised shapes and map one to one. When a plan is saved to a `plans/` directory, the plugin reminds Claude to offer a review before execution starts. Two sample plans ship in `samples/`: a short one in plan-mode shape (`2026-10-07-api-rate-limiting.md`) and a five-task one in superpowers shape (`2026-10-08-ledgerline-recurring-billing.md`) that exercises every card, decision kind, mockup and task-map edge.
