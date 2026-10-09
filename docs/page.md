@@ -38,7 +38,7 @@ One card per section of the plan: the preamble, each task, and the wrap-up when 
 | Changes | A table of files: role, path, action (`create`, `modify`, `test`). |
 | Interfaces | What the section consumes and what it produces. |
 | Decisions | Links to the decisions this section owns. |
-| UI | One mockup per screen or component, drawn at the plan's viewport width and scaled down to fit the card when wider. Click a mockup to open it full size in a lightbox (Esc or the × closes it). Each mockup has a *Comment on this mockup* button. |
+| UI | One mockup per screen or component, drawn at the plan's viewport width and scaled down to fit the card when wider, with its caption underneath. Click a mockup to open it full size in a lightbox (Esc or the × closes it). Each mockup has a *Comment on this mockup* button. |
 | Risks | Gotchas, races, manual steps. |
 | Code | One collapsed block per fenced block in the plan. The summary line carries the block's role and a prose explanation of what it does; tests also list their behaviours (one line per test title). Expanding shows the syntax-highlighted source. |
 | Executor detail | The plan's step list verbatim, rendered as markdown, collapsed. The reviewer never has to read it. |
@@ -47,7 +47,7 @@ Below the sub-cards: comment pins for this round, threads from the previous roun
 
 ## Narration
 
-The page carries audio for every paragraph of the manifest's narration: the overview (goal, architecture, tech stack, task map), each decision, and for every section the summary, interfaces, decisions, UI, risks and one paragraph per code block.
+The page carries audio for every paragraph of the manifest's narration: the overview (goal, architecture, tech stack, task map), each decision, and for every section the summary, interfaces, decisions, risks, one paragraph per mockup and one per code block. A mockup's paragraph is its caption read aloud: the states and breakpoints the drawing cannot show, not a description of the drawing.
 
 - Press play in the header to listen from the start, or the play button on any card or chapter label to start there.
 - The region being spoken is highlighted and scrolled into view. Scrolling pauses while you have text selected or a comment open, so listening and commenting do not fight.

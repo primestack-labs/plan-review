@@ -61,7 +61,7 @@ test('every narration target resolves to an element in its card', () => {
 
 test('mockups render raw html inside a sized frame; executor detail is embedded as markdown', () => {
   const html = render(load());
-  assert.ok(html.includes('<figure class="mockup" data-ui="t5-copy-from-windows-ui1">'));
+  assert.ok(html.includes('<figure class="mockup" id="t5-copy-from-windows-ui1" data-ui="t5-copy-from-windows-ui1">'));
   assert.ok(html.includes('<div class="frame-fit"><div class="frame" style="width:320px"'));
   assert.ok(html.includes('<dialog id="lightbox">'));
   assert.ok(html.includes('Αντιγραφή από ωράριο'));

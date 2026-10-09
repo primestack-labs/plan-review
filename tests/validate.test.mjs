@@ -58,3 +58,10 @@ test('contentHash ignores key order, narration, sourceRange and itself', () => {
   assert.notEqual(sectionHash({ ...s, summary: 'changed' }), sectionHash(s));
   assert.equal(stableStringify({ b: 1, a: [{ d: 2, c: 3 }] }), '{"a":[{"c":3,"d":2}],"b":1}');
 });
+
+test('a narration paragraph may target a mockup', () => {
+  const m = load();
+  m.sections[1].ui.push({ id: 't1-bridge-service-ui1', title: 'Panel', html: '<b>x</b>', notes: 'Empty state shows a link.' });
+  m.sections[1].narration.push({ id: 't1-bridge-service-p9', target: 't1-bridge-service-ui1', text: 'Mockup one, panel. Empty state shows a link.' });
+  assert.deepEqual(validateManifest(m), []);
+});

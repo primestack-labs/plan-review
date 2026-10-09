@@ -55,7 +55,7 @@ export function validateManifest(manifest) {
     s.decisionIds.forEach((id, j) => {
       if (!decisionIds.has(id)) errors.push(`$.sections[${i}].decisionIds[${j}]: unknown decision ${id}`);
     });
-    const targets = new Set([...SUB_TARGETS, ...s.blocks.map((b) => b.id)]);
+    const targets = new Set([...SUB_TARGETS, ...s.ui.map((u) => u.id), ...s.blocks.map((b) => b.id)]);
     s.narration.forEach((p, j) => {
       if (!targets.has(p.target)) errors.push(`$.sections[${i}].narration[${j}].target: unknown target ${p.target}`);
     });

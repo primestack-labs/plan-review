@@ -111,8 +111,8 @@ button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--a
 .card[data-collapsed=true] > :not(header) { display: none; }
 .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; color: var(--card); background: var(--changed); }
 .sub { margin-top: 12px; padding: 4px 8px; border-radius: 6px; transition: background .4s ease, box-shadow .4s ease; }
-.block { transition: background .4s ease, box-shadow .4s ease; }
-.sub.speaking, .block.speaking { background: var(--speak); box-shadow: 0 0 0 2px var(--accent); }
+.block, .mockup { transition: background .4s ease, box-shadow .4s ease; }
+.sub.speaking, .block.speaking, .mockup.speaking { background: var(--speak); box-shadow: 0 0 0 2px var(--accent); }
 .block { border: 1px solid var(--line); border-radius: 6px; margin: 6px 0; padding: 6px 10px; }
 .block summary { cursor: pointer; }
 .block .role { font-weight: 600; margin-right: 6px; }
@@ -121,7 +121,7 @@ button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--a
 .sub-executor summary { cursor: pointer; color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .06em; }
 .md { font-size: 13.5px; color: var(--fg); margin-top: 8px; }
 .md pre { background: var(--card); }
-.mockup { margin: 8px 0; }
+.mockup { margin: 8px 0; padding: 4px 8px; border-radius: 6px; }
 .mockup figcaption { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
 .mockup .frame-fit { overflow: hidden; }
 .mockup .frame { box-sizing: border-box; transform-origin: top left; cursor: zoom-in; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: #fff; color: #111; }
