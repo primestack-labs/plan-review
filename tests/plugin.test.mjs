@@ -8,7 +8,7 @@ const json = (p) => JSON.parse(read(p));
 test('plugin.json declares the setup options and release metadata', () => {
   const m = json('.claude-plugin/plugin.json');
   assert.equal(m.name, 'plan-review');
-  assert.equal(m.version, '1.1.0');
+  assert.equal(m.version, '1.2.0');
   assert.equal(m.license, 'MIT');
   assert.match(m.homepage, /github\.com\/primestack-labs\/plan-review/);
   assert.deepEqual(Object.keys(m.userConfig), ['tts', 'kokoro_voice', 'say_voice']);
