@@ -1,6 +1,6 @@
 # plan-review demo
 
-The hosted demo of the [plan-review](https://github.com/primestack-labs/plan-review) plugin: the review page for the `samples/2026-10-08-ledgerline-recurring-billing.md` plan from `main`, served by GitHub Pages at https://primestack-labs.github.io/plan-review/.
+The hosted demo of the [plan-review](https://github.com/primestack-labs/plan-review) plugin: the review page for the [`samples/2026-10-08-ledgerline-recurring-billing.md`](https://github.com/primestack-labs/plan-review/blob/main/samples/2026-10-08-ledgerline-recurring-billing.md) plan from `main`, served by GitHub Pages at https://primestack-labs.github.io/plan-review/.
 
 Everything demo-related lives on this branch only. `main` carries the plugin.
 
