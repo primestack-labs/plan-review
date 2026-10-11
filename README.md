@@ -54,7 +54,7 @@ Check a voice after changing it or after a macOS upgrade (`say` falls back to th
     hooks/hooks.json               hand-off after a plan is saved
     samples/                       two plans to try the loop on
     schema/                        manifest and submission schemas
-    scripts/                       validate, audio, render, serve, diff, ensure-deps
+    scripts/                       paths, validate, audio, render, serve, diff, ensure-deps
     scripts/tts/kokoro/            pinned Kokoro dependency bundle
     template/                      page.html, page.css, state.mjs, page.js
     tests/                         node --test tests/

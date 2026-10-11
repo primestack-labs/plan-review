@@ -82,6 +82,7 @@ All under `${CLAUDE_PLUGIN_ROOT}/scripts/` (the plugin cache directory when inst
 
 | Script | Usage |
 |---|---|
+| `paths.mjs` | `<plan.md>` — prints the review folder, round, previous round and manifest state; creates the folder. |
 | `validate.mjs` | `<manifest.json> [--plan <plan.md>]` — schema and cross-reference check; with `--plan`, stamps hashes and rewrites the manifest. |
 | `audio.mjs` | `<manifest.json> --out <dir> [--tts kokoro\|say] [--kokoro-voice V] [--say-voice V] [--voice V] [--rate R]` |
 | `render.mjs` | `<manifest.json> --out <index.html> [--audio <audio/index.json>] [--previous <rounds/N>] [--round N]` |
