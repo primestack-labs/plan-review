@@ -59,6 +59,14 @@ Check a voice after changing it or after a macOS upgrade (`say` falls back to th
 
 Review artifacts live in `~/.claude/plan-review/<repo>/<plan>/`.
 
+## What it runs and fetches
+
+- Node scripts from the plugin folder: validate the manifest, synthesise narration, render the page, serve it on 127.0.0.1 until Submit, diff rounds.
+- With Kokoro: `npm ci` of the pinned bundle in `scripts/tts/kokoro/` into `~/.claude/plan-review/deps/` from the npm registry, and the Kokoro model from Hugging Face into `~/.claude/plan-review/models/`, both on first use only.
+- The review page loads mermaid, marked and highlight.js from cdnjs.cloudflare.com; the audio and the review itself never leave the machine.
+- One PostToolUse hook on Write that adds a reminder when a markdown file is saved under a `plans/` directory.
+- Nothing is sent anywhere: no telemetry, no external API, no credentials read from the environment.
+
 ## Develop
 
     git clone https://github.com/primestack-labs/plan-review ~/Projects/plan-review
