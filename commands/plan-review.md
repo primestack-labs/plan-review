@@ -1,7 +1,7 @@
 ---
 description: Review an implementation plan in the browser — reviewer's projection, per-section verdicts, anchored comments, chaptered audio — and continue from the submitted review
 argument-hint: <path/to/plan.md> [--voice <voice>] [--rate <wpm>]
-allowed-tools: Read, Write, Edit, Bash(node:*), Bash(git:*), Bash(ls:*), Bash(mkdir:*), Bash(open:*), Bash(shasum:*)
+allowed-tools: Read, Write, Edit, Bash(node:*), Bash(git rev-parse:*), Bash(ls:*), Bash(mkdir:*), Bash(open:*), Bash(shasum:*)
 ---
 
 Run one review round for the plan at `$ARGUMENTS` (first token is the plan path; `--voice` overrides the configured voice for this plan, `--rate` sets words per minute for `say`).

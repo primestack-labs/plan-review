@@ -2,7 +2,7 @@
   "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "plan-review",
   "displayName": "Plan Review",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Review an implementation plan in the browser: reviewer's projection, per-section verdicts, anchored comments, narrated chapters, revision rounds that come back to Claude Code.",
   "author": { "name": "Marios Vertopoulos", "url": "https://primestack.tech" },
   "homepage": "https://github.com/primestack-labs/plan-review",
@@ -15,8 +15,7 @@
     "tts": {
       "type": "string",
       "title": "Narration engine",
-      "description": "kokoro: runs on the CPU on macOS, Windows and Linux; downloads about 400 MB of packages and 90 MB of model on first use. say: macOS system voices, nothing to download.",
-      "options": ["kokoro", "say"],
+      "description": "kokoro or say. kokoro: runs on the CPU on macOS, Windows and Linux; downloads about 400 MB of packages and 90 MB of model on first use. say: macOS system voices, nothing to download.",
       "default": "kokoro"
     },
     "kokoro_voice": {
