@@ -16,7 +16,7 @@ test('resolveTts picks the provider voice, lets --voice win, and treats empty fl
   assert.equal(resolveTts({ tts: 'say', sayVoice: 'Samantha', voice: 'Jamie (Premium)' }).voice, 'Jamie (Premium)');
   assert.equal(resolveTts({ rate: '' }).rate, '');
   assert.equal(resolveTts({ tts: 'say', rate: '180' }).rate, '180');
-  assert.throws(() => resolveTts({ tts: 'nope' }), /unknown tts provider/);
+  assert.throws(() => resolveTts({ tts: 'nope' }), /unknown narration engine "nope"/);
 });
 
 test('joinSamples inserts a gap between parts only', () => {
@@ -31,4 +31,13 @@ test('wavBuffer writes a header wavDuration reads back', () => {
   const path = join(dir, 'a.wav');
   writeFileSync(path, wavBuffer(new Float32Array(24000 * 1.5), 24000));
   assert.equal(wavDuration(path), 1.5);
+});
+
+test('resolveTts normalises the engine name, names the valid engines, and keeps say to macOS', () => {
+  assert.equal(resolveTts({ tts: ' Kokoro ' }).provider, PROVIDERS.kokoro);
+  assert.equal(resolveTts({ tts: 'SAY' }, { platform: 'darwin' }).provider, PROVIDERS.say);
+  assert.throws(() => resolveTts({ tts: 'espeak' }), /unknown narration engine "espeak"; set it to kokoro or say/);
+  assert.throws(() => resolveTts({ tts: 'say' }, { platform: 'linux' }), /say engine exists only on macOS/);
+  assert.throws(() => resolveTts({ tts: 'say' }, { platform: 'win32' }), /set the narration engine to kokoro/);
+  assert.equal(resolveTts({ tts: 'kokoro' }, { platform: 'linux' }).provider, PROVIDERS.kokoro);
 });
