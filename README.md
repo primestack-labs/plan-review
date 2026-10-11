@@ -1,3 +1,5 @@
+![plan-review icon](docs/icon-128.png)
+
 # plan-review
 
 Plan Review turns long implementation plans into friendly, finishable browser reviews, letting you judge the design as an architect instead of micromanaging the codebase. Chaptered narration guides you through per-task cards covering decisions, interfaces, mockups and risks, while a dependency map shows what each task hands to the next and every code block is summarised in prose, with the full source one click away. Approve or comment on each section, resolve the decisions and submit; Claude answers your comments, revises the plan and opens the next round with changed sections marked.
