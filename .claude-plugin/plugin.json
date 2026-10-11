@@ -7,7 +7,7 @@
   "author": { "name": "Marios Vertopoulos", "url": "https://primestack.tech" },
   "homepage": "https://github.com/primestack-labs/plan-review",
   "repository": "https://github.com/primestack-labs/plan-review",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "keywords": ["plan", "review", "superpowers", "narration", "tts", "kokoro"],
   "skills": ["./skills/plan-review-manifest", "./skills/plan-review-respond"],
   "commands": ["./commands/plan-review.md"],

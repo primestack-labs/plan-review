@@ -77,4 +77,4 @@ Release: bump `version` in `.claude-plugin/plugin.json` and `package.json`, then
 
 ## Licence
 
-MIT
+Apache 2.0. Copyright 2026 Marios Vertopoulos (PrimeStack); the NOTICE file carries the attribution that redistributions keep.
