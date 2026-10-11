@@ -3,7 +3,7 @@
   "name": "plan-review",
   "displayName": "Plan Review",
   "version": "1.2.3",
-  "description": "Review an implementation plan in the browser: reviewer's projection, per-section verdicts, anchored comments, narrated chapters, revision rounds that come back to Claude Code.",
+  "description": "Review plans as an architect, not a code reader: narrated task cards show decisions, interfaces, mockups and risks, a dependency map shows what each task hands to the next, and code is summarised in prose with the full source one click away. Approve or comment on each section; Claude answers every comment, revises the plan and opens the next round with the changes marked.",
   "author": { "name": "Marios Vertopoulos", "url": "https://primestack.tech" },
   "homepage": "https://github.com/primestack-labs/plan-review",
   "repository": "https://github.com/primestack-labs/plan-review",

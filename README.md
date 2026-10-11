@@ -1,6 +1,6 @@
 # plan-review
 
-Claude Code plugin: review an implementation plan in the browser instead of reading 2,000 lines of executor detail.
+Plan Review turns long implementation plans into friendly, finishable browser reviews, letting you judge the design as an architect instead of micromanaging the codebase. Chaptered narration guides you through per-task cards covering decisions, interfaces, mockups and risks, while a dependency map shows what each task hands to the next and every code block is summarised in prose, with the full source one click away. Approve or comment on each section, resolve the decisions and submit; Claude answers your comments, revises the plan and opens the next round with changed sections marked.
 
 **[Try the demo](https://primestack-labs.github.io/plan-review/)**: the review page produced from [the five-task sample plan](samples/2026-10-08-ledgerline-recurring-billing.md), narrated, with approvals and comments kept in your browser.
 
