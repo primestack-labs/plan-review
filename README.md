@@ -12,6 +12,7 @@ Everything demo-related lives on this branch only. `main` carries the plugin.
 | `build/manifest.json` | The sample's manifest, hashes stamped |
 | `build/static.js` | Demo transport: draft in localStorage, Submit opens a dialog with the submission JSON |
 | `build/banner.html` | The banner above the page and the dialog styles |
+| `icon.png` | The favicon, the plugin's listing icon |
 | `build/audio/` | Kokoro WAV cache, git-ignored |
 
 ## Rebuild

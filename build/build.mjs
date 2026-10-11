@@ -42,7 +42,7 @@ script('render.mjs', manifest, '--audio', join(audioOut, 'index.json'), '--out',
 const shim = await readFile(join(here, 'static.js'), 'utf8');
 const banner = await readFile(join(here, 'banner.html'), 'utf8');
 let html = await readFile(page, 'utf8');
-for (const [marker, replacement] of [['<body>\n', `<body>\n${banner}`], ['<script type="module">', `<script>\n${shim}</script>\n<script type="module">`]]) {
+for (const [marker, replacement] of [['<meta charset="utf-8">', '<meta charset="utf-8">\n<link rel="icon" type="image/png" href="icon.png">'], ['<body>\n', `<body>\n${banner}`], ['<script type="module">', `<script>\n${shim}</script>\n<script type="module">`]]) {
   if (!html.includes(marker)) throw new Error(`render output lacks ${JSON.stringify(marker)}`);
   html = html.replace(marker, replacement);
 }
