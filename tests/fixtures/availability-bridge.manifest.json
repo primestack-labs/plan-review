@@ -176,7 +176,7 @@
         },
         {
           "id": "t1-bridge-service-p6",
-          "text": "Code block two, the bridge service. Exports the boundary constants and the four pure functions.",
+          "text": "Code block two, the bridge service. Exports the boundary constants and the four pure functions; recompute reads windows and the availability row through the Document Service and writes the projection back.",
           "target": "t1-bridge-service-b2"
         }
       ],
