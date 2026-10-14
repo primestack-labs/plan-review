@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { validateManifest, stampHashes } from '../scripts/validate.mjs';
 import { sectionHash, stableStringify } from '../scripts/lib/hash.mjs';
+import { uncovered } from '../scripts/lib/coverage.mjs';
 
 const load = () => JSON.parse(readFileSync(new URL('./fixtures/availability-bridge.manifest.json', import.meta.url)));
 const planText = readFileSync(new URL('./fixtures/availability-bridge.plan.md', import.meta.url), 'utf8');
@@ -57,6 +58,36 @@ test('contentHash ignores key order, narration, sourceRange and itself', () => {
   assert.equal(sectionHash(reordered), sectionHash(s));
   assert.notEqual(sectionHash({ ...s, summary: 'changed' }), sectionHash(s));
   assert.equal(stableStringify({ b: 1, a: [{ d: 2, c: 3 }] }), '{"a":[{"c":3,"d":2}],"b":1}');
+});
+
+test('a block paragraph that drops a sentence or clause of its summary is rejected', () => {
+  const m = load();
+  const s = m.sections[1];
+  const block = s.blocks[0];
+  const paragraph = s.narration.find((p) => p.target === block.id);
+  block.summary += ' The unlock-all case lives in the existing solve-input tests.';
+  assert.deepEqual(validateManifest(m), ['$.sections[1].blocks[0].summary: not narrated: "The unlock-all case lives in the existing solve-input tests."']);
+  paragraph.text += ' The unlock all case lives in the existing solve input tests.';
+  assert.deepEqual(validateManifest(m), []);
+  block.summary += ' An empty batch returns immediately, and the query is limited to the batch cap.';
+  paragraph.text += ' An empty batch returns immediately.';
+  assert.deepEqual(validateManifest(m), ['$.sections[1].blocks[0].summary: not narrated: "and the query is limited to the batch cap."']);
+});
+
+test('a block without a paragraph and an unspoken risk are rejected', () => {
+  const m = load();
+  const s = m.sections[1];
+  s.narration = s.narration.filter((p) => p.target !== s.blocks[1].id);
+  s.risks.push('Two Google calls and one debit per comparison.');
+  assert.deepEqual(validateManifest(m), [
+    '$.sections[1].blocks[1]: no narration paragraph',
+    `$.sections[1].risks[${s.risks.length - 1}]: not narrated: "Two Google calls and one debit per comparison."`,
+  ]);
+});
+
+test('uncovered matches spoken forms of the written source', () => {
+  assert.deepEqual(uncovered('Anything else is a Greek 400 through validateEnum. Valid batches return unchanged.', 'Anything else is a Greek four hundred through validate enum. Valid batches return unchanged.'), []);
+  assert.deepEqual(uncovered('Reads bridge.js and the cached rows.', 'It reads bridge dot j s and the cached rows.'), []);
 });
 
 test('a narration paragraph may target a mockup', () => {

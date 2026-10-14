@@ -8,14 +8,19 @@ import { PLAN_REVIEW_HOME } from './lib/home.mjs';
 export const BUNDLE_DIR = join(dirname(fileURLToPath(import.meta.url)), 'tts', 'kokoro');
 export const depsDir = (home = PLAN_REVIEW_HOME) => join(home, 'deps');
 export const loaderPath = (home = PLAN_REVIEW_HOME) => join(depsDir(home), 'load-kokoro.mjs');
-const LOADER = "export * from 'kokoro-js';\nexport { env as transformersEnv } from '@huggingface/transformers';\n";
+export const LOADER = "export * from 'kokoro-js';\nexport { phonemize } from 'phonemizer';\nexport { env as transformersEnv } from '@huggingface/transformers';\n";
+
+const loaderCurrent = (home) => existsSync(loaderPath(home)) && readFileSync(loaderPath(home), 'utf8') === LOADER;
 
 export function ensureDeps({ home = PLAN_REVIEW_HOME, bundle = BUNDLE_DIR, npm = 'npm', stdio = 'inherit', spawn = spawnSync, platform = process.platform } = {}) {
   const dir = depsDir(home);
   const stamp = join(dir, '.installed');
   const lock = readFileSync(join(bundle, 'package-lock.json'), 'utf8');
   const expected = sha1(lock);
-  if (existsSync(stamp) && readFileSync(stamp, 'utf8').trim() === expected) return { installed: false, dir };
+  if (existsSync(stamp) && readFileSync(stamp, 'utf8').trim() === expected) {
+    if (!loaderCurrent(home)) writeFileSync(loaderPath(home), LOADER);
+    return { installed: false, dir };
+  }
   mkdirSync(dir, { recursive: true });
   copyFileSync(join(bundle, 'package.json'), join(dir, 'package.json'));
   writeFileSync(join(dir, 'package-lock.json'), lock);

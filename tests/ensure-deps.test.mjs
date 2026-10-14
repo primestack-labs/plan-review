@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { ensureDeps, loaderPath } from '../scripts/ensure-deps.mjs';
+import { ensureDeps, loaderPath, LOADER } from '../scripts/ensure-deps.mjs';
 
 const setup = (npmScript) => {
   const root = mkdtempSync(join(tmpdir(), 'plan-review-deps-'));
@@ -24,10 +24,20 @@ test('installs once with npm ci, writes the loader and the stamp, then is a no-o
   assert.equal(first.installed, true);
   assert.equal(first.dir, join(t.home, 'deps'));
   assert.deepEqual(t.calls(), ['ci --omit=dev --no-audit --no-fund']);
-  assert.equal(readFileSync(loaderPath(t.home), 'utf8'), "export * from 'kokoro-js';\nexport { env as transformersEnv } from '@huggingface/transformers';\n");
+  assert.equal(readFileSync(loaderPath(t.home), 'utf8'), LOADER);
+  assert.match(LOADER, /export \{ phonemize \} from 'phonemizer';/);
   assert.ok(existsSync(join(t.home, 'deps', '.installed')));
   assert.equal(readFileSync(join(t.home, 'deps', 'package.json'), 'utf8'), '{"dependencies":{"kokoro-js":"1.2.1"}}');
   assert.equal(ensureDeps({ home: t.home, bundle: t.bundle, npm: t.npm, stdio: 'ignore' }).installed, false);
+  assert.equal(t.calls().length, 1);
+});
+
+test('a stale loader is rewritten without reinstalling', () => {
+  const t = setup('exit 0');
+  ensureDeps({ home: t.home, bundle: t.bundle, npm: t.npm, stdio: 'ignore' });
+  writeFileSync(loaderPath(t.home), "export * from 'kokoro-js';\n");
+  assert.equal(ensureDeps({ home: t.home, bundle: t.bundle, npm: t.npm, stdio: 'ignore' }).installed, false);
+  assert.equal(readFileSync(loaderPath(t.home), 'utf8'), LOADER);
   assert.equal(t.calls().length, 1);
 });
 
