@@ -12,6 +12,13 @@ test('the fixture manifest validates', () => {
   assert.deepEqual(validateManifest(load()), []);
 });
 
+test('revision and threads paragraphs are valid narration targets', () => {
+  const m = load();
+  m.sections[1].narration.unshift({ id: 't1-bridge-service-p0', text: 'Since round one, the recompute step was added.', target: 'revision' });
+  m.sections[1].narration.push({ id: 't1-bridge-service-p9', text: 'Your comment on the slots: why twenty one. Clarified: seven weekdays times three periods.', target: 'threads' });
+  assert.deepEqual(validateManifest(m), []);
+});
+
 test('a missing field is reported with its path', () => {
   const m = load();
   delete m.sections[1].summary;

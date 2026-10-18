@@ -114,7 +114,7 @@ let pendingSeek = 0;
 const targetElement = (p) => {
   if (p.sectionId === 'overview') return document.getElementById(`overview-${p.target}`);
   if (p.sectionId === 'decisions') return document.getElementById(`decision-${p.target}`);
-  return document.getElementById(['summary', 'interfaces', 'decisions', 'risks', 'ui'].includes(p.target) ? `${p.sectionId}-${p.target}` : p.target);
+  return document.getElementById(['revision', 'summary', 'interfaces', 'decisions', 'risks', 'ui', 'threads'].includes(p.target) ? `${p.sectionId}-${p.target}` : p.target);
 };
 
 function playIndex(i, offset = 0) {
@@ -459,6 +459,37 @@ document.addEventListener('keydown', (e) => {
   e.preventDefault();
   action();
 });
+
+// ---------- changes since the previous round ----------
+const CHANGES_COOKIE = 'plan-review-changes';
+const showChanges = $('#show-changes');
+if (showChanges) {
+  const applyChanges = (on) => {
+    document.body.dataset.changes = on ? 'shown' : 'hidden';
+    showChanges.checked = on;
+    document.cookie = `${CHANGES_COOKIE}=${on ? 'shown' : 'hidden'}; path=/; max-age=31536000; SameSite=Lax`;
+  };
+  showChanges.addEventListener('change', () => applyChanges(showChanges.checked));
+  applyChanges(!document.cookie.includes(`${CHANGES_COOKIE}=hidden`));
+  const topOf = (el) => (el.offsetParent ? el : el.closest('article.card')).getBoundingClientRect().top;
+  function jumpChange(delta) {
+    const marks = $$('[data-changed=true]:not(article)');
+    if (!marks.length) return;
+    const line = $('#bar').getBoundingClientRect().bottom + 24;
+    let i = delta > 0 ? marks.findIndex((el) => topOf(el) > line + 2) : marks.findLastIndex((el) => topOf(el) < line - 2);
+    if (i < 0) i = delta > 0 ? 0 : marks.length - 1;
+    const el = marks[i];
+    const card = el.closest('article.card');
+    if (card) delete card.dataset.collapsed;
+    if (el.tagName === 'DETAILS') el.open = true;
+    window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - line + 12, behavior: 'smooth' });
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 1300);
+  }
+  $('#next-change').addEventListener('click', () => jumpChange(1));
+  SHORTCUTS.n = () => jumpChange(1);
+  SHORTCUTS['Shift+N'] = () => jumpChange(-1);
+}
 
 // ---------- submit ----------
 $('#submit').addEventListener('click', async () => {

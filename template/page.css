@@ -144,6 +144,36 @@ button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--a
 .thread[data-status=accepted] { border-color: var(--approved); }
 .thread[data-status=clarified] { border-color: var(--changed); }
 .pin .remove { float: right; padding: 0 6px; }
+
+/* changes since the previous round */
+.sub, .block, .mockup, .thread { scroll-margin-top: 150px; }
+.sub-revision { border: 1px solid var(--changed); background: color-mix(in srgb, var(--changed) 7%, var(--card)); }
+.sub-revision h3 { color: var(--changed); }
+.sub-revision ul { font-size: 14px; }
+.sub-revision a { color: inherit; text-decoration: none; }
+.sub-revision a:hover { text-decoration: underline; }
+h3 .badge, summary .badge, figcaption .badge { font-size: 10px; vertical-align: middle; text-transform: none; letter-spacing: 0; margin-left: 4px; }
+.diff { display: block; margin: 3px 0; padding: 2px 8px; border-radius: 4px; text-decoration: none; color: inherit; }
+del.diff { background: color-mix(in srgb, var(--questioned) 10%, transparent); }
+ins.diff { background: color-mix(in srgb, var(--approved) 12%, transparent); }
+mark { color: inherit; border-radius: 2px; }
+del mark { background: color-mix(in srgb, var(--questioned) 32%, transparent); }
+ins mark { background: color-mix(in srgb, var(--approved) 32%, transparent); }
+summary .diff { display: inline-block; }
+tr[data-change=added] td { background: color-mix(in srgb, var(--approved) 12%, transparent); }
+tr[data-change=removed] td { background: color-mix(in srgb, var(--questioned) 10%, transparent); color: var(--muted); }
+.linediff { font-size: 12.5px; margin: 8px 0; }
+.linediff span, .linediff ins, .linediff del { display: block; white-space: pre; border-radius: 0; text-decoration: none; color: inherit; }
+.linediff del { background: color-mix(in srgb, var(--questioned) 10%, transparent); }
+.linediff ins { background: color-mix(in srgb, var(--approved) 12%, transparent); }
+.linediff .gap { color: var(--muted); }
+.flash { animation: flash 1.3s ease; }
+@keyframes flash { 0%, 50% { box-shadow: 0 0 0 3px var(--changed); } }
+body[data-changes=hidden] del.diff, body[data-changes=hidden] li[data-change=removed], body[data-changes=hidden] tr[data-change=removed], body[data-changes=hidden] .linediff { display: none; }
+body[data-changes=hidden] ins.diff { display: inline; padding: 0; background: none; }
+body[data-changes=hidden] ins mark, body[data-changes=hidden] tr[data-change=added] td { background: none; }
+.show-changes { display: flex; align-items: center; gap: 4px; }
+#next-change { padding: 1px 8px; font-size: 12px; }
 .verdict { display: flex; gap: 10px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
 .verdict button { flex: 1; padding: 10px 12px; font-weight: 600; border-width: 2px; }
 .verdict button[data-verdict=approved] { border-color: var(--approved); color: var(--approved); }
