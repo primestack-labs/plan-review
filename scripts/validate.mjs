@@ -9,7 +9,7 @@ const loadSchema = (name) => JSON.parse(readFileSync(new URL(`../schema/${name}`
 export const MANIFEST_SCHEMA = loadSchema('manifest.schema.json');
 export const SUBMISSION_SCHEMA = loadSchema('submission.schema.json');
 
-const SUB_TARGETS = ['summary', 'interfaces', 'decisions', 'risks', 'ui'];
+const SUB_TARGETS = ['revision', 'summary', 'interfaces', 'decisions', 'risks', 'ui', 'threads'];
 const OVERVIEW_TARGETS = ['goal', 'architecture', 'techStack', 'taskMap'];
 
 export function validateManifest(manifest) {
