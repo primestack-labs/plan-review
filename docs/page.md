@@ -14,7 +14,7 @@ Top to bottom: a sticky header bar, the overview, the decisions, the global cons
 - **Speed.** 0.8× to 2.0× in steps of 0.1.
 - **Now playing and clock.** The chapter being narrated, elapsed and total listening time.
 - **Progress bar.** One segment per chapter: `Ov` (overview), `Dec` (decisions), `P` (preamble), `T1`…`Tn` (tasks), `W` (wrap-up). Segment width is proportional to its listening time. The fill shows how far the chapter has been heard; a heard chapter is fully filled. Segments take the colour of the chapter's verdict. Clicking inside a segment seeks to that point of the chapter.
-- **Counters.** Approved sections, commented sections, open decisions, and the reading and listening budget for the whole plan (reading time is estimated at 200 words per minute over the summaries, interfaces, risks and block summaries).
+- **Counters.** Approved sections, commented sections, open decisions, from round 2 the changed sections with the *Show changes* switch and the *↓ change* button (see [Rounds](#rounds)), and the reading and listening budget for the whole plan (reading time is estimated at 200 words per minute over the summaries, interfaces, risks and block summaries).
 
 ### Overview
 
@@ -34,6 +34,7 @@ One card per section of the plan: the preamble, each task, and the wrap-up when 
 
 | Sub-card | Content |
 |---|---|
+| Since round n | Only on a card that changed since the previous round: one line per changed field (`Summary edited`, `Risks: 1 added`, `Code block 2: source changed`), each linking to the field, and a last line counting the answered comments, linking to the threads. |
 | Summary | Two to four sentences: what the section builds and why. |
 | Changes | A table of files: role, path, action (`create`, `modify`, `test`). |
 | Interfaces | What the section consumes and what it produces. |
@@ -47,7 +48,7 @@ Below the sub-cards: comment pins for this round, threads from the previous roun
 
 ## Narration
 
-The page carries audio for every paragraph of the manifest's narration: the overview (goal, architecture, tech stack, task map), each decision, and for every section the summary, interfaces, decisions, risks, one paragraph per mockup and one per code block. A mockup's paragraph is its caption read aloud: the states and breakpoints the drawing cannot show, not a description of the drawing.
+The page carries audio for every paragraph of the manifest's narration: the overview (goal, architecture, tech stack, task map), each decision, and for every section the summary, interfaces, decisions, risks, one paragraph per mockup and one per code block; from round 2, what changed since the previous round and the threads (see [Rounds](#rounds)). A mockup's paragraph is its caption read aloud: the states and breakpoints the drawing cannot show, not a description of the drawing.
 
 - Press play in the header to listen from the start, or the play button on any card or chapter label to start there.
 - The region being spoken is highlighted and scrolled into view. Scrolling pauses while you have text selected or a comment open, so listening and commenting do not fight.
@@ -91,7 +92,9 @@ Every change is saved to a draft on the local server after 400 ms. Reloading the
 
 When Claude answers a submission it revises the plan, rebuilds the manifest and opens round n+1. On that page:
 
-- Sections whose content changed carry the `changed since last round` badge.
+- Sections whose content changed carry the `changed since last round` badge, open with a *Since round n* list and mark each changed sub-card, block and mockup with a `changed` badge. Text is compared sentence by sentence: an unchanged sentence appears once, a changed one as its old row and its new row with the changed words marked, a new one as a single row. The executor detail and a block's source get a line diff above the current text.
+- The narration of a changed section opens with the *Since round n* list spoken, field by field, and a section with threads ends with them read aloud: the quote, the comment and the reply.
+- The header counts the changed sections and adds a *Show changes* switch, which hides the deletions and the highlights, and a *↓ change* button (`N`, `Shift+N` back) that jumps from one changed field to the next, expanding the card or block it lands on.
 - Sections that were approved and did not change are prefilled as approved and collapsed.
 - A section whose comment was rejected or clarified is reopened, so the reply can be read and the verdict given again.
 - Each previous comment is shown in its card as a thread: the quote, your comment, and the reply with its status (`accepted`, `rejected`, `clarified`).
@@ -106,6 +109,7 @@ When Claude answers a submission it revises the plan, rebuilds the manifest and 
 | Shift + ← / → | Back or forward 15 seconds |
 | Shift + ↑ / ↓ | Previous or next section |
 | Alt + ← / → | Slower or faster |
+| N / Shift + N | Next or previous changed field (from round 2) |
 | Esc | Close the comment popover |
 
 Shortcuts are ignored while typing in a field.

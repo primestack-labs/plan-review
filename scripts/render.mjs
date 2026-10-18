@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { diffManifests } from './diff.mjs';
 import { introSections } from './audio.mjs';
+import { sectionRevision, revisionNotes } from './lib/revision.mjs';
 
 const TEMPLATE_DIR = fileURLToPath(new URL('../template/', import.meta.url));
 const WORDS_PER_MINUTE = 200;
@@ -28,11 +29,27 @@ const fmtMin = (minutes) => `${Math.max(1, Math.round(minutes))} min`;
 const fmtSec = (seconds) => (seconds ? `${Math.max(1, Math.round(seconds / 60))} min` : 'no audio');
 const list = (items) => (items.length ? `<ul>${items.map((i) => `<li>${h(i)}</li>`).join('')}</ul>` : '<p class="none">None.</p>');
 
+const markup = (ops) => ops.map((o) => (o.op === 'equal' ? h(o.value) : `<mark>${h(o.value)}</mark>`)).join('');
+const rowHtml = (tag, ops) => (ops ? `<${tag} class="diff">${markup(ops)}</${tag}>` : '');
+const partHtml = (p) => (p.kind === 'same' ? `<span>${h(p.text)}</span>` : rowHtml('del', p.before) + rowHtml('ins', p.after));
+const textHtml = (value, change) => (change ? change.parts.map(partHtml).join(' ') : h(value));
+const itemHtml = (item) => {
+  if (item.kind === 'same') return `<li>${h(item.text)}</li>`;
+  if (item.kind === 'edited') return `<li data-change="edited">${textHtml(item.text, item.change)}</li>`;
+  return `<li data-change="${item.kind}">${rowHtml(item.kind === 'added' ? 'ins' : 'del', [{ op: 'equal', value: item.text }])}</li>`;
+};
+const listHtml = (items, change) => (change ? `<ul>${change.items.map(itemHtml).join('')}</ul>` : list(items));
+const lineHtml = (o) => (o.op === 'equal' ? `<span>  ${h(o.value)}</span>` : `<${o.op === 'delete' ? 'del' : 'ins'}>${o.op === 'delete' ? '-' : '+'} ${o.ops ? markup(o.ops) : h(o.value)}</${o.op === 'delete' ? 'del' : 'ins'}>`);
+const lineDiffHtml = (diff) => (diff ? `<pre class="linediff">${diff.hunks.map((hunk) => hunk.map(lineHtml).join('')).join('<span class="gap">⋯</span>')}</pre>` : '');
+const STATUS_ORDER = ['accepted', 'rejected', 'clarified', 'unanswered'];
+const badge = (changed) => (changed ? ' <span class="badge">changed</span>' : '');
+const SUB_ANCHORS = ['summary', 'changes', 'interfaces', 'decisions', 'ui', 'risks', 'code', 'executor'];
+
 const INTRO_TITLES = { overview: 'Overview', decisions: 'Decisions needed' };
 const INTRO_LABELS = { overview: 'Ov', decisions: 'Dec' };
 const chapterLabel = (s) => (s.kind === 'task' ? `T${s.ordinal}` : s.kind === 'preamble' ? 'P' : 'W');
 
-function renderHeader(manifest, audioIndex, round) {
+function renderHeader(manifest, audioIndex, round, changedCount) {
   const intro = introSections(manifest);
   const readTotal = manifest.sections.reduce((s, x) => s + readingMinutes(x), 0);
   const listenTotal = [...intro, ...manifest.sections].reduce((s, x) => s + listeningSeconds(x, audioIndex), 0);
@@ -66,6 +83,7 @@ function renderHeader(manifest, audioIndex, round) {
   <div class="chapters" id="chapters">${chapters}</div>
   <div class="row counters">
     <span id="count-approved">0 approved</span><span id="count-commented">0 commented</span><span id="count-decisions">0 open decisions</span>
+    ${changedCount ? `<span id="count-changed">${changedCount} changed</span><label class="show-changes"><input id="show-changes" type="checkbox" checked> Show changes</label><button id="next-change" title="Next change (N) · Previous change (Shift+N)">↓ change</button>` : ''}
     <span class="budget">read ${fmtMin(readTotal)} · listen ${fmtSec(listenTotal)}</span>
   </div>
 </header>`;
@@ -109,35 +127,56 @@ function renderDecisions(manifest, previousResolutions) {
 
 const renderConstraints = (constraints) => `<section id="constraints"><details><summary>Global constraints (${constraints.length})</summary>${list(constraints)}</details></section>`;
 
+function renderRevision(s, ctx) {
+  const { round } = ctx;
+  const revision = ctx.revisions.get(s.id);
+  const noteLines = revisionNotes(revision, s).map((n) => `<li><a href="#${SUB_ANCHORS.includes(n.target) ? `${h(s.id)}-${n.target}` : h(n.target)}">${h(n.text)}</a></li>`);
+  const counts = ctx.commentCounts(s.id);
+  const commentLine = STATUS_ORDER.some((k) => counts[k]) ? [`<li><a href="#${h(s.id)}-threads">Comments: ${STATUS_ORDER.filter((k) => counts[k]).map((k) => `${counts[k]} ${k}`).join(', ')}</a></li>`] : [];
+  const lines = [...noteLines, ...commentLine];
+  return `<div class="sub sub-revision" id="${h(s.id)}-revision"><h3>Since round ${round - 1}</h3>${lines.length ? `<ul>${lines.join('')}</ul>` : '<p class="none">Reworded only.</p>'}</div>`;
+}
+
 function renderSection(s, ctx) {
   const { audioIndex, changed, prefill, decisionsById, threads } = ctx;
-  const sub = (name, label, inner) => `<div class="sub sub-${name}" id="${h(s.id)}-${name}"><h3>${label}</h3>${inner}</div>`;
-  const changes = s.changes.length
-    ? `<table><thead><tr><th>Role</th><th>Path</th><th>Action</th></tr></thead><tbody>${s.changes.map((c) => `<tr><td>${h(c.role)}</td><td><code>${h(c.path)}</code></td><td>${h(c.action)}</td></tr>`).join('')}</tbody></table>`
-    : '<p class="none">No files.</p>';
-  const interfaces = `<dl><dt>Consumes</dt><dd>${list(s.interfaces.consumes)}</dd><dt>Produces</dt><dd>${list(s.interfaces.produces)}</dd></dl>`;
+  const r = ctx.revisions.get(s.id) ?? null;
+  const sub = (name, label, inner, isChanged = false) => `<div class="sub sub-${name}" id="${h(s.id)}-${name}"${isChanged ? ' data-changed="true"' : ''}><h3>${label}${badge(isChanged)}</h3>${inner}</div>`;
+  const fileRow = (c, change) => `<tr${change ? ` data-change="${change}"` : ''}><td>${h(c.role)}</td><td><code>${h(c.path)}</code></td><td>${h(c.action)}</td></tr>`;
+  const fileRows = r?.changes ? r.changes.items.map((i) => fileRow(i.row, i.kind === 'same' ? '' : i.kind)) : s.changes.map((c) => fileRow(c));
+  const changes = fileRows.length ? `<table><thead><tr><th>Role</th><th>Path</th><th>Action</th></tr></thead><tbody>${fileRows.join('')}</tbody></table>` : '<p class="none">No files.</p>';
+  const interfaces = `<dl><dt>Consumes</dt><dd>${listHtml(s.interfaces.consumes, r?.interfaces.consumes)}</dd><dt>Produces</dt><dd>${listHtml(s.interfaces.produces, r?.interfaces.produces)}</dd></dl>`;
   const decisions = s.decisionIds.length
     ? `<ul>${s.decisionIds.map((id) => `<li><a href="#decision-${h(id)}">${h(decisionsById.get(id)?.text ?? id)}</a></li>`).join('')}</ul>`
     : '<p class="none">None.</p>';
-  const ui = s.ui.map((u) => `<figure class="mockup" id="${h(u.id)}" data-ui="${h(u.id)}"><figcaption>${h(u.title)} <button class="comment-ui" data-ui="${h(u.id)}">Comment on this mockup</button></figcaption><div class="frame-fit"><div class="frame" style="width:${Number(u.width) || 360}px" title="Open full size">${u.html}</div></div>${u.notes ? `<p class="notes">${h(u.notes)}</p>` : ''}</figure>`).join('');
-  const blocks = s.blocks.map((b) => `<details class="block" id="${h(b.id)}" data-kind="${h(b.kind)}"><summary><span class="role">${h(b.role)}</span> ${h(b.summary)}</summary>${b.behaviors?.length ? `<ul class="behaviors">${b.behaviors.map((x) => `<li>${h(x)}</li>`).join('')}</ul>` : ''}<pre><code class="lang-${h(b.lang)}">${h(b.source)}</code></pre></details>`).join('');
+  const ui = s.ui.map((u) => {
+    const c = r?.ui[u.id];
+    return `<figure class="mockup" id="${h(u.id)}" data-ui="${h(u.id)}"${c ? ' data-changed="true"' : ''}><figcaption>${textHtml(u.title, c?.title)}${badge(c)} <button class="comment-ui" data-ui="${h(u.id)}">Comment on this mockup</button></figcaption><div class="frame-fit"><div class="frame" style="width:${Number(u.width) || 360}px" title="Open full size">${u.html}</div></div>${u.notes ? `<p class="notes">${textHtml(u.notes, c?.notes)}</p>` : ''}</figure>`;
+  }).join('');
+  const blocks = s.blocks.map((b) => {
+    const c = r?.blocks[b.id];
+    const behaviors = b.behaviors?.length || c?.behaviors ? `<ul class="behaviors">${listHtml(b.behaviors ?? [], c?.behaviors).replace(/^<ul>|<\/ul>$/g, '')}</ul>` : '';
+    return `<details class="block" id="${h(b.id)}" data-kind="${h(b.kind)}"${c ? ' data-changed="true"' : ''}><summary><span class="role">${textHtml(b.role, c?.role)}</span> ${textHtml(b.summary, c?.summary)}${badge(c)}</summary>${behaviors}${lineDiffHtml(c?.sourceDiff)}<pre><code class="lang-${h(b.lang)}">${h(b.source)}</code></pre></details>`;
+  }).join('');
   const isChanged = changed.has(s.id);
   const verdict = prefill[s.id] ?? '';
+  const uiChanged = Boolean(r && (Object.keys(r.ui).length || r.removedUi.length));
+  const codeChanged = Boolean(r && (Object.keys(r.blocks).length || r.removedBlocks.length));
   return `<article class="card" id="${h(s.id)}" data-section="${h(s.id)}" data-kind="${h(s.kind)}" data-verdict="${h(verdict)}"${isChanged ? ' data-changed="true"' : ''}${verdict === 'approved' ? ' data-collapsed="true"' : ''}>
   <header>
     <button class="play" data-section="${h(s.id)}" title="Play this section">▶</button>
-    <h2>${h(s.title)}</h2>
+    <h2>${textHtml(s.title, r?.title)}</h2>
     ${isChanged ? '<span class="badge changed">changed since last round</span>' : ''}
     <span class="budget">read ${fmtMin(readingMinutes(s))} · listen ${fmtSec(listeningSeconds(s, audioIndex))}</span>
   </header>
-  ${sub('summary', 'Summary', `<p>${h(s.summary)}</p>`)}
-  ${sub('changes', 'Changes', changes)}
-  ${sub('interfaces', 'Interfaces', interfaces)}
+  ${isChanged ? renderRevision(s, ctx) : ''}
+  ${sub('summary', 'Summary', `<p>${textHtml(s.summary, r?.summary)}</p>`, Boolean(r?.summary))}
+  ${sub('changes', 'Changes', changes, Boolean(r?.changes))}
+  ${sub('interfaces', 'Interfaces', interfaces, Boolean(r?.interfaces.consumes || r?.interfaces.produces))}
   ${sub('decisions', 'Decisions', decisions)}
-  ${sub('ui', 'UI', ui || '<p class="none">No UI.</p>')}
-  ${sub('risks', 'Risks', list(s.risks))}
-  ${sub('code', 'Code', blocks || '<p class="none">No code.</p>')}
-  <details class="sub sub-executor" id="${h(s.id)}-executor"><summary>Executor detail</summary><div class="md" data-md="${h(s.id)}"></div><script type="text/markdown" id="md-${h(s.id)}">${s.executorDetail.replace(/<\/script/gi, '<\\/script')}</script></details>
+  ${sub('ui', 'UI', ui || '<p class="none">No UI.</p>', uiChanged)}
+  ${sub('risks', 'Risks', listHtml(s.risks, r?.risks), Boolean(r?.risks))}
+  ${sub('code', 'Code', blocks || '<p class="none">No code.</p>', codeChanged)}
+  <details class="sub sub-executor" id="${h(s.id)}-executor"${r?.executorDetail ? ' data-changed="true"' : ''}><summary>Executor detail${badge(r?.executorDetail)}</summary>${lineDiffHtml(r?.executorDetail)}<div class="md" data-md="${h(s.id)}"></div><script type="text/markdown" id="md-${h(s.id)}">${s.executorDetail.replace(/<\/script/gi, '<\\/script')}</script></details>
   ${threads(s.id)}
   <footer class="verdict"><button data-verdict="commented">✎ Comment</button><button data-verdict="approved">✓ Approve</button></footer>
 </article>`;
@@ -150,13 +189,14 @@ const renderFooter = () => `<footer class="foot" id="foot">
 
 export function render(manifest, { audioIndex = {}, previous = null, round = 1 } = {}) {
   const ctx = roundContext(manifest, previous);
+  const spoken = (s) => s.narration.filter((p) => (p.target !== 'revision' || ctx.changed.has(s.id)) && (p.target !== 'threads' || ctx.threads(s.id) !== ''));
   const body = [
-    renderHeader(manifest, audioIndex, round),
+    renderHeader(manifest, audioIndex, round, ctx.changed.size),
     '<main>',
     renderOverview(manifest),
     renderDecisions(manifest, ctx.previousResolutions),
     renderConstraints(manifest.constraints),
-    ...manifest.sections.map((s) => renderSection(s, { ...ctx, audioIndex, decisionsById: new Map(manifest.decisions.map((d) => [d.id, d])) })),
+    ...manifest.sections.map((s) => renderSection(s, { ...ctx, audioIndex, round, decisionsById: new Map(manifest.decisions.map((d) => [d.id, d])) })),
     '</main>',
     renderFooter(),
   ].join('\n');
@@ -168,7 +208,7 @@ export function render(manifest, { audioIndex = {}, previous = null, round = 1 }
     previousResolutions: ctx.previousResolutions,
     changed: [...ctx.changed],
     intro: introSections(manifest).map((s) => ({ id: s.id, narration: s.narration.map((p) => ({ id: p.id, target: p.target })) })),
-    sections: manifest.sections.map((s) => ({ id: s.id, narration: s.narration.map((p) => ({ id: p.id, target: p.target })) })),
+    sections: manifest.sections.map((s) => ({ id: s.id, narration: spoken(s).map((p) => ({ id: p.id, target: p.target })) })),
     decisions: manifest.decisions.map((d) => ({ id: d.id })),
   };
   const fill = {
@@ -183,11 +223,21 @@ export function render(manifest, { audioIndex = {}, previous = null, round = 1 }
 }
 
 export function roundContext(manifest, previous) {
-  if (!previous?.submission) return { changed: new Set(), prefill: {}, previousResolutions: {}, threads: () => '' };
+  if (!previous?.submission) return { changed: new Set(), revisions: new Map(), prefill: {}, previousResolutions: {}, threads: () => '', commentCounts: () => ({}) };
   const { submission, replies } = previous;
   const changed = new Set(previous.manifest ? diffManifests(previous.manifest, manifest).changed : []);
+  const previousSections = new Map((previous.manifest?.sections ?? []).map((s) => [s.id, s]));
+  const revisions = new Map([...changed].map((id) => [id, sectionRevision(previousSections.get(id), manifest.sections.find((s) => s.id === id))]).filter(([, r]) => r));
   const replyFor = (id) => replies?.replies?.[id];
   const comments = submission.comments ?? [];
+  const commentCounts = (sectionId) => {
+    const counts = {};
+    for (const c of comments.filter((x) => x.anchor.sectionId === sectionId)) {
+      const status = replyFor(c.id)?.status ?? 'unanswered';
+      counts[status] = (counts[status] ?? 0) + 1;
+    }
+    return counts;
+  };
   const reopened = new Set(comments.filter((c) => ['rejected', 'clarified'].includes(replyFor(c.id)?.status)).map((c) => c.anchor.sectionId));
 
   const prefill = {};
@@ -200,16 +250,16 @@ export function roundContext(manifest, previous) {
   const threads = (sectionId) => {
     const own = comments.filter((c) => c.anchor.sectionId === sectionId);
     if (!own.length) return '';
-    return `<div class="threads">${own.map((c) => {
+    return `<div class="threads" id="${h(sectionId)}-threads">${own.map((c) => {
       const reply = replyFor(c.id);
-      return `<div class="thread" data-comment="${h(c.id)}" data-status="${h(reply?.status ?? 'unanswered')}">
+      return `<div class="thread" id="thread-${h(c.id)}" data-comment="${h(c.id)}" data-status="${h(reply?.status ?? 'unanswered')}">
     <blockquote>${h(c.anchor.quote)}</blockquote>
     <p class="you">${h(c.text)}</p>
     ${reply ? `<p class="reply"><b>${h(reply.status)}:</b> ${h(reply.text)}</p>` : '<p class="reply none">No reply yet.</p>'}
   </div>`;
     }).join('')}</div>`;
   };
-  return { changed, prefill, previousResolutions, threads };
+  return { changed, revisions, prefill, previousResolutions, threads, commentCounts };
 }
 
 export function readPrevious(dir) {

@@ -20,7 +20,7 @@ The respond skill:
 3. Otherwise decides each comment: `accepted`, `rejected` (with the reason) or `clarified` (the plan is right; explains). It locates the commented passage through the section's source range in the reviewed manifest, narrowed to the block or mockup the anchor names. It verifies before agreeing and pushes back when a request is technically wrong.
 4. Edits the plan for every accepted comment and every resolved `confirm` decision (the confirmed value replaces its placeholder).
 5. Writes `rounds/<n>/replies.json`: one reply per comment with status and text.
-6. Refreshes the manifest (ids kept, only changed sections rewritten), regenerates audio (cached paragraphs are reused), renders round n+1 with the previous round as reference, serves it, and tells you what changed.
+6. Refreshes the manifest (ids kept, only changed sections rewritten, each opening with a spoken "since round n" paragraph), regenerates audio (cached paragraphs are reused), renders round n+1 with the previous round as reference, serves it, and tells you what changed. The page marks every changed field and shows the previous wording as deletions; `docs/page.md` describes the controls.
 7. When round n+1 is submitted, runs itself again.
 
 Rounds continue until a submission comes back `approved`.
