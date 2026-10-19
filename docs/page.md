@@ -56,6 +56,8 @@ The page carries audio for every paragraph of the manifest's narration: the over
 - When the last paragraph of a chapter ends, the chapter is marked heard, which shows in the progress bar and is kept in the draft.
 - Speed, 15-second skips and chapter jumps apply to the whole queue; the clock counts across chapters.
 
+Narration is written in the voice's language. A label, name or quote in another script is spoken as its meaning or a transliteration, and audio generation refuses a paragraph with letters the voice cannot read. Signatures, paths and container names are said in words; every fact an entry states is kept.
+
 Audio is generated once per paragraph and cached by text and voice, so a revised round only synthesises the paragraphs that changed.
 
 ## Reviewing

@@ -19,6 +19,15 @@ test('resolveTts picks the provider voice, lets --voice win, and treats empty fl
   assert.throws(() => resolveTts({ tts: 'nope' }), /unknown narration engine "nope"/);
 });
 
+test('each provider reports the scripts its voice reads', async () => {
+  assert.deepEqual(await PROVIDERS.kokoro.scripts('bf_emma'), ['Latin']);
+  const list = async () => 'Melina              el_GR    # Χαίρετε!\nSamantha (Enhanced) en_US    # Hello!\n';
+  assert.deepEqual(await PROVIDERS.say.scripts('Melina', { list }), ['Greek']);
+  assert.deepEqual(await PROVIDERS.say.scripts('Samantha', { list }), ['Latin']);
+  assert.equal(await PROVIDERS.say.scripts('Nobody', { list }), null);
+  assert.equal(await PROVIDERS.say.scripts('', { list }), null);
+});
+
 test('joinSamples inserts a gap between parts only', () => {
   const a = new Float32Array([1, 1]);
   const b = new Float32Array([2]);

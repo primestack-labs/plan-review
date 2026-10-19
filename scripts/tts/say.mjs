@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, statSync } from 'node:fs';
 import { rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { scriptsFor, voiceLanguage } from './script.mjs';
 
 const PROBE = 'The bridge service projects working windows onto the availability grid, and the reviewer listens.';
 const BOGUS = 'PlanReviewNoSuchVoice';
@@ -35,6 +36,16 @@ export function runAfinfo(path) {
   });
 }
 
+export function runSayList() {
+  return new Promise((resolve, reject) => {
+    const child = spawn('say', ['-v', '?'], { stdio: ['ignore', 'pipe', 'ignore'] });
+    let stdout = '';
+    child.stdout.on('data', (d) => { stdout += d; });
+    child.on('error', reject);
+    child.on('close', (code) => (code === 0 ? resolve(stdout) : reject(new Error(`say -v ? exited ${code}`))));
+  });
+}
+
 export const sameSynthesis = (a, b) => a.duration === b.duration && a.bytes === b.bytes;
 
 export async function probeVoice(voice, { say = runSay, probe = runAfinfo, dir = mkdtempSync(join(tmpdir(), 'plan-review-voice-')) } = {}) {
@@ -58,6 +69,11 @@ export const sayProvider = {
   defaultVoice: '',
   synthesize: runSay,
   duration: runAfinfo,
+  async scripts(voice, { list = runSayList } = {}) {
+    if (!voice) return null;
+    const language = voiceLanguage(await list(), voice);
+    return language ? scriptsFor(language) : null;
+  },
   async checkVoice(voice) {
     if (!voice) return { ok: true, detail: 'system default voice' };
     const r = await probeVoice(voice);

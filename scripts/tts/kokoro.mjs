@@ -100,6 +100,7 @@ export const kokoroProvider = {
     writeFileSync(path, wavBuffer(joinSamples(parts, rate), rate));
   },
   duration: async (path) => wavDuration(path),
+  scripts: async () => ['Latin'],
   async checkVoice(voice) {
     const { tts } = await model();
     const voices = Object.keys(tts.voices ?? {});

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { sha1 } from './lib/hash.mjs';
 import { resolveTts } from './tts/index.mjs';
+import { foreignWords } from './tts/script.mjs';
 
 export const introSections = (manifest) => [
   { id: 'overview', narration: manifest.narration?.overview ?? [] },
@@ -23,6 +24,14 @@ const exists = (path) => access(path).then(() => true, () => false);
 export async function generateAudio(manifest, outDir, { provider, voice = provider.defaultVoice ?? '', rate = '', concurrency = provider.concurrency ?? 1 }) {
   await mkdir(outDir, { recursive: true });
   const chunks = narrationChunks(manifest);
+  const scripts = await provider.scripts?.(voice);
+  if (scripts) {
+    const foreign = chunks.flatMap((c) => {
+      const words = foreignWords(c.text, scripts);
+      return words.length ? [`${c.id}: ${words.map((w) => `«${w}»`).join(', ')}`] : [];
+    });
+    if (foreign.length) throw new Error(`the ${provider.name} voice ${voice || 'system default'} reads ${scripts.join(', ')} letters only; speak these words in its language, as their meaning or a transliteration:\n${foreign.join('\n')}`);
+  }
   const index = {};
   const inFlight = new Map();
   let cursor = 0;

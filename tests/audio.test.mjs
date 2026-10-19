@@ -65,6 +65,19 @@ test('generateAudio does not treat a leftover .partial.m4a as cached', async () 
   assert.ok(calls.includes(firstChunk.text));
 });
 
+test('generateAudio refuses words the voice cannot read and names the paragraph', async () => {
+  const outDir = mkdtempSync(join(tmpdir(), 'plan-review-audio-'));
+  const greek = structuredClone(manifest);
+  greek.sections[1].narration[0].text += ' It presses "Σύγκριση δρομολογίων" at Γλυφάδα.';
+  const calls = [];
+  const provider = { ...stub(calls), scripts: async () => ['Latin'] };
+  await assert.rejects(generateAudio(greek, outDir, { provider, voice: 'bf_emma' }), (e) => /bf_emma/.test(e.message) && /t1-bridge-service-p1: «Σύγκριση», «δρομολογίων», «Γλυφάδα»/.test(e.message));
+  assert.equal(calls.length, 0);
+  await generateAudio(greek, outDir, { provider: { ...stub(calls), scripts: async () => ['Latin', 'Greek'] } });
+  assert.equal(calls.length, paragraphIds.length);
+  await generateAudio(greek, outDir, { provider: { ...stub(calls), scripts: async () => null } });
+});
+
 test('generateAudio prunes files the index no longer references', async () => {
   const outDir = mkdtempSync(join(tmpdir(), 'plan-review-audio-'));
   writeFileSync(join(outDir, 'stale.m4a'), '');
