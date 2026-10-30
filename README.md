@@ -26,6 +26,8 @@ Any markdown plan works: the projection is built from the plan's headings, file 
     /plugin marketplace add primestack-labs/plan-review
     /plugin install plan-review@primestack
 
+`main` is the released line. To follow the development line instead, add the marketplace as `primestack-labs/plan-review#develop`; every change merged there carries a new version, so an installed plugin picks it up on the next update (`/plugin marketplace update primestack`, or on its own with auto-update enabled for the marketplace).
+
 Claude Code asks for the narration engine and voice when it enables the plugin. Change them later in `/config`, or from a shell (options left out keep their values):
 
     echo '{"tts":"say","say_voice":"Jamie (Premium)"}' | claude plugin configure plan-review --values-stdin
@@ -81,7 +83,7 @@ Review artifacts live in `~/.claude/plan-review/<repo>/<plan>/`.
     cd ~/Projects/plan-review && npm test && npm run validate
     claude --plugin-dir ~/Projects/plan-review
 
-Release: bump `version` in `.claude-plugin/plugin.json` and `package.json`, then `claude plugin tag --push`.
+Branches: feature branches open pull requests against `develop`, each bumping `version` in `.claude-plugin/plugin.json` and `package.json`. A release is a pull request from `develop` to `main`, followed by `claude plugin tag --push`.
 
 ## Licence
 
