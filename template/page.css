@@ -49,6 +49,7 @@ button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--a
 .transport > button svg { display: block; width: 20px; height: 20px; margin: 0 auto; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .transport > button svg text { fill: currentColor; stroke: none; font: 700 8px/1 system-ui, sans-serif; text-anchor: middle; }
 .transport input[type=range] { width: 90px; vertical-align: middle; }
+#speed-value { display: inline-block; min-width: 3.4em; font-variant-numeric: tabular-nums; }
 .status { font-size: 13px; margin-top: 6px; flex-wrap: nowrap; justify-content: flex-end; }
 #now { min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #clock { color: var(--muted); font-variant-numeric: tabular-nums; }
