@@ -11,7 +11,7 @@ Top to bottom: a sticky header bar, the overview, the decisions, the global cons
 - **Title and round.** The plan's H1 and `Round N`.
 - **Transport.** Previous section, back 15 seconds, play/pause, forward 15 seconds, next section, and a *Stop at section end* checkbox that pauses playback at every chapter boundary.
 - **Theme.** System, light or dark. The choice is kept in a cookie and the task map is redrawn to match.
-- **Speed.** 0.8× to 2.0× in steps of 0.1, 0.9× by default.
+- **Speed.** 0.8× to 2.0× in steps of 0.1.
 - **Now playing and clock.** The chapter being narrated, elapsed and total listening time.
 - **Progress bar.** One segment per chapter: `Ov` (overview), `Dec` (decisions), `P` (preamble), `T1`…`Tn` (tasks), `W` (wrap-up). Segment width is proportional to its listening time. The fill shows how far the chapter has been heard; a heard chapter is fully filled. Segments take the colour of the chapter's verdict. Clicking inside a segment seeks to that point of the chapter.
 - **Counters.** Approved sections, commented sections, open decisions, from round 2 the changed sections with the *Show changes* switch and the *↓ change* button (see [Rounds](#rounds)), and the reading and listening budget for the whole plan (reading time is estimated at 200 words per minute over the summaries, interfaces, risks and block summaries).
