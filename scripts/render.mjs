@@ -75,7 +75,7 @@ function renderHeader(manifest, audioIndex, round, changedCount) {
   </div>
   <div class="row status">
     <div class="theme" id="theme" role="radiogroup" aria-label="Theme"><button data-theme="system" title="Theme: follow the system">◐</button><button data-theme="light" title="Theme: light">☀</button><button data-theme="dark" title="Theme: dark">☾</button></div>
-    <label class="transport" title="Slower (Alt+←) · Faster (Alt+→)">Speed <input id="speed" type="range" min="0.8" max="2" step="0.1" value="0.9"><span id="speed-value">0.9×</span></label>
+    <label class="transport" title="Slower (Alt+←) · Faster (Alt+→)">Speed <input id="speed" type="range" min="0.8" max="2" step="0.1" value="1"><span id="speed-value">1.0×</span></label>
     <span id="now">Not playing</span>
     <span id="clock">0:00 / 0:00</span>
   </div>
