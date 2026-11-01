@@ -9,7 +9,7 @@ const fresh = () => initialState(sections, decisions, {}, {}, 1);
 
 test('buildQueue lists paragraphs in document order', () => {
   const q = buildQueue(sections);
-  assert.equal(q.length, 11);
+  assert.equal(q.length, 12);
   assert.deepEqual(q[2], { id: 't1-bridge-service-p1', sectionId: 't1-bridge-service', target: 'summary' });
 });
 

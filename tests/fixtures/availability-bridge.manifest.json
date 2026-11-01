@@ -239,6 +239,11 @@
           "id": "t5-copy-from-windows-p3",
           "text": "The mockup shows the preview modal at three hundred twenty pixels: a title, a diff table of changed slots, and cancel and copy buttons.",
           "target": "ui"
+        },
+        {
+          "id": "t5-copy-from-windows-p4",
+          "target": "t5-copy-from-windows-ui1",
+          "text": "Mockup one, copy preview modal, three hundred and twenty pixels. Diff rows list only slots that change."
         }
       ],
       "sourceRange": [
@@ -252,7 +257,7 @@
     "overview": [
       {
         "id": "overview-p1",
-        "text": "The goal: the one directional bridge from working windows to the advertised availability grid, with a copy action, opt in auto sync, and mismatch warnings.",
+        "text": "The goal: the one directional bridge from working windows to the advertised availability grid: a copy action with preview diff, opt in auto sync, and the harmful direction mismatch warning with Ignore, Remove and Add window actions.",
         "target": "goal"
       },
       {
@@ -264,12 +269,12 @@
     "decisions": [
       {
         "id": "decisions-p1",
-        "text": "Decision one, confirm: the slot boundaries are placeholders. Confirm or adjust them.",
+        "text": "Decision one, confirm: slot boundaries are placeholders from the spec: morning six to twelve, noon twelve to seventeen, evening seventeen to twenty four. Confirm or adjust; they are encoded once in slot bounds. Options: confirm six to twelve, twelve to seventeen, seventeen to twenty four; or adjust, stating the boundaries in a comment.",
         "target": "d1"
       },
       {
         "id": "decisions-p2",
-        "text": "Decision two, assumption: route permissions are granted manually in Strapi admin.",
+        "text": "Decision two, assumption: route permissions are granted manually in Strapi admin after the endpoints land; without that the routes answer four oh three.",
         "target": "d2"
       }
     ]

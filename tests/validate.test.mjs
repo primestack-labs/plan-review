@@ -27,7 +27,7 @@ test('a missing field is reported with its path', () => {
 
 test('duplicate ids are reported', () => {
   const m = load();
-  m.sections[1].ui.push({ id: 't1-bridge-service-b1', title: 'Clash', html: '<b>x</b>' });
+  m.sections[1].ui.push({ id: 't1-bridge-service-b1', title: 'Clash', html: '<b>x</b>', notes: m.sections[1].blocks[0].summary });
   assert.deepEqual(validateManifest(m), ['$.sections[1].ui[0].id: duplicate id t1-bridge-service-b1']);
 });
 
@@ -90,6 +90,36 @@ test('a block without a paragraph and an unspoken risk are rejected', () => {
     '$.sections[1].blocks[1]: no narration paragraph',
     `$.sections[1].risks[${s.risks.length - 1}]: not narrated: "Two Google calls and one debit per comparison."`,
   ]);
+});
+
+test('a paragraph that says what its text does not say is rejected', () => {
+  const m = load();
+  const s = m.sections[1];
+  const j = s.narration.findIndex((p) => p.target === 'summary');
+  s.narration[j].text += ' It also emails the teacher every Monday morning.';
+  assert.deepEqual(validateManifest(m), [`$.sections[1].narration[${j}]: not in the text: "It also emails the teacher every Monday morning."`]);
+});
+
+test('overview and decision paragraphs are checked both ways against the plan text', () => {
+  const m = load();
+  m.narration.overview[0].text = 'Overview. Schedule builder plan two of five. The goal: the one directional bridge from working windows to the advertised availability grid, with a copy action and opt in auto sync.';
+  assert.deepEqual(validateManifest(m), ['$.plan.goal: not narrated: "and the harmful-direction mismatch warning with Ignore, Remove and Add-window actions."']);
+  m.narration.overview[0].text += ' And the harmful direction mismatch warning with Ignore, Remove and Add window actions. It also brews coffee for the whole team.';
+  assert.deepEqual(validateManifest(m), ['$.narration.overview[0]: not in the text: "It also brews coffee for the whole team."']);
+  m.narration.overview[0].text = m.narration.overview[0].text.replace(' It also brews coffee for the whole team.', '');
+  m.narration.decisions[0].text = 'Decision one, confirm: the slot boundaries are placeholders. Confirm or adjust them.';
+  assert.deepEqual(validateManifest(m), [
+    '$.decisions[0]: not narrated: "morning 06:00–12:00, noon 12:00–17:00, evening 17:00–24:00."',
+    '$.decisions[0]: not narrated: "they are encoded once in SLOT_BOUNDS."',
+  ]);
+});
+
+test('a mockup without a paragraph is rejected like a block', () => {
+  const m = load();
+  const i = m.sections.findIndex((s) => s.ui.length);
+  const s = m.sections[i];
+  s.narration = s.narration.filter((p) => p.target !== s.ui[0].id);
+  assert.deepEqual(validateManifest(m), [`$.sections[${i}].ui[0]: no narration paragraph`]);
 });
 
 test('uncovered matches spoken forms of the written source', () => {

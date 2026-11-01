@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { validate } from './lib/schema.mjs';
 import { sha1, sectionHash } from './lib/hash.mjs';
-import { narrationCoverage } from './lib/coverage.mjs';
+import { narrationCoverage, overviewCoverage } from './lib/coverage.mjs';
 
 const loadSchema = (name) => JSON.parse(readFileSync(new URL(`../schema/${name}`, import.meta.url), 'utf8'));
 export const MANIFEST_SCHEMA = loadSchema('manifest.schema.json');
@@ -62,6 +62,7 @@ export function validateManifest(manifest) {
     });
     errors.push(...narrationCoverage(s, `$.sections[${i}]`));
   });
+  errors.push(...overviewCoverage(manifest));
   return errors;
 }
 
